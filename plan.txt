@@ -1,0 +1,449 @@
+Plan: EventQR – Offline-First Ticket Verification System
+TL;DR: Build a three-tier system consisting of a Node.js/Express backend with PostgreSQL, a React Admin Panel for event management, and a Flutter Scanner App with SQLite for offline-first QR verification. QR codes will be signed with Ed25519 for tamper-proof validation. The scanner app syncs ticket data pre-event and queues check-ins for background sync. Multi-event support included.
+
+Tech Stack Summary
+Component	Technology
+Backend API	Node.js + Express + TypeScript
+Database	PostgreSQL (server), SQLite (Flutter)
+Admin Panel	React + Vite + TypeScript + TailwindCSS
+Scanner App	Flutter + Dart
+Email Service	AWS SES
+QR Signing	Ed25519 (tweetnacl / libsodium)
+QR Generation	qrcode (Node.js), qr_flutter (Flutter)
+Auth	JWT for Admin, API keys for scanners
+
+
+System Architecture
+┌─────────────────┐      ┌─────────────────┐
+│  Admin Panel    │◄────►│  Backend API    │◄────► PostgreSQL
+│  (React + Vite) │      │  (Express)      │
+└─────────────────┘      └────────┬────────┘
+                                  │
+                         ┌────────▼────────┐
+                         │  AWS SES        │
+                         │  (Email)        │
+                         └────────┬────────┘
+                                  │
+        ┌─────────────────────────┼─────────────────────────┐
+        │                         │                         │
+┌───────▼───────┐         ┌───────▼───────┐         ┌───────▼───────┐
+│ Scanner App 1 │         │ Scanner App 2 │         │ Scanner App N │
+│ (Flutter)     │         │ (Flutter)     │         │ (Flutter)     │
+│ SQLite Local  │         │ SQLite Local  │         │ SQLite Local  │
+└───────────────┘         └───────────────┘         └───────────────┘
+
+Directory Structure
+Monorepo Layout:
+EventManagementApp/
+├── backend/                    # Node.js + Express API
+│   ├── src/
+│   │   ├── config/             # DB, AWS, crypto config
+│   │   ├── controllers/        # Route handlers
+│   │   ├── middleware/         # Auth, validation
+│   │   ├── models/             # Sequelize/Prisma models
+│   │   ├── routes/             # API routes
+│   │   ├── services/           # Business logic
+│   │   │   ├── ticketService.ts
+│   │   │   ├── qrService.ts
+│   │   │   ├── emailService.ts
+│   │   │   └── syncService.ts
+│   │   ├── utils/              # Crypto, helpers
+│   │   └── app.ts
+│   ├── prisma/                 # Prisma schema
+│   └── package.json
+│
+├── admin-panel/                # React + Vite
+│   ├── src/
+│   │   ├── components/         # Reusable UI
+│   │   ├── pages/              # Route pages
+│   │   ├── hooks/              # Custom hooks
+│   │   ├── services/           # API calls
+│   │   ├── store/              # State management
+│   │   └── App.tsx
+│   └── package.json
+│
+├── scanner-app/                # Flutter
+│   └── lib/
+│       ├── models/             # Ticket, Event models
+│       ├── db/                 # SQLite helper
+│       ├── services/           # API, crypto services
+│       ├── providers/          # State management
+│       ├── screens/            # UI screens
+│       ├── widgets/            # Reusable widgets
+│       └── main.dart
+│
+└── shared/                     # Shared types/contracts
+    └── types/
+
+Updated Database Schema
+tickets table (revised):
+tickets (
+  id                UUID PRIMARY KEY,
+  event_id          UUID REFERENCES events(id),
+  ticket_code       VARCHAR(50) UNIQUE,
+  
+  -- Registration data (from Google Sheet)
+  submitted_at      TIMESTAMP,
+  name              VARCHAR(255),
+  personal_email    VARCHAR(255),
+  college_email     VARCHAR(255),
+  reg_no            VARCHAR(100),
+  phone             VARCHAR(50),
+  batch             VARCHAR(50),
+  referral          VARCHAR(100),
+  
+  -- Payment
+  txn_id            VARCHAR(255),
+  payer_name        VARCHAR(255),
+  payment_proof_url TEXT,
+  payment_verified  BOOLEAN DEFAULT FALSE,
+  
+  -- Ticket type (enum with fixed prices)
+  ticket_type       ENUM('REGULAR_SINGLE', 'REGULAR_DUO', 'FRONT_SINGLE', 'FRONT_DUO'),
+  
+  -- QR & Status
+  qr_data           TEXT,
+  email_sent        BOOLEAN DEFAULT FALSE,
+  checked_in        BOOLEAN DEFAULT FALSE,
+  checked_in_at     TIMESTAMP,
+  checked_in_by     VARCHAR(100),
+  
+  created_at        TIMESTAMP,
+  updated_at        TIMESTAMP
+)
+
+-- Secondary participant for DUO tickets
+duo_participants (
+  id                UUID PRIMARY KEY,
+  ticket_id         UUID REFERENCES tickets(id),
+  name              VARCHAR(255),
+  email             VARCHAR(255),
+  reg_no            VARCHAR(100),
+  college_email     VARCHAR(255),
+  checked_in        BOOLEAN DEFAULT FALSE,
+  checked_in_at     TIMESTAMP
+)
+
+Ticket Types Enum (Backend):
+enum TicketType {
+  REGULAR_SINGLE = 'REGULAR_SINGLE',  // ₹650
+  REGULAR_DUO = 'REGULAR_DUO',        // ₹1198
+  FRONT_SINGLE = 'FRONT_SINGLE',      // ₹950
+  FRONT_DUO = 'FRONT_DUO'             // ₹1550
+}
+
+CSV Import Mapping
+CSV Import Mapping
+The import service will map Google Sheets columns:
+
+Sheet Column	Backend Field
+Timestamp	submitted_at
+Email Address	personal_email
+NAME	name
+Registration No.	reg_no
+College Email Id	college_email
+Contact No.	phone
+Batch	batch
+Referral Code	referral
+Transaction ID	txn_id
+Beneficiary Name	payer_name
+Payment Screenshot	payment_proof_url
+TICKET TYPE	ticket_type
+(Duo) name	duo_participants.name
+(Duo) email id	duo_participants.email
+(Duo) registration no	duo_participants.reg_no
+(Duo) college email id	duo_participants.college_email
+
+DUO Tickets → Separate QRs:
+
+When processing a DUO ticket from Sheet, create 2 ticket entries in database
+Both linked via duo_ticket_id field
+Each participant gets their own QR code
+Each scanned independently
+Stats track both as part of same purchase
+Google Sheets API Integration:
+
+Backend connects directly to Google Sheets
+Admin panel has "Sync from Sheet" button
+Uses Google Service Account for auth
+Can set up periodic auto-sync or on-demand
+Additional Backend Dependencies:
+
+New API Endpoint:
+
+Config needed:
+
+Google Cloud Service Account credentials
+Sheet ID per event (stored in events table)
+Updated Plan Summary
+Aspect	Decision
+DUO handling	Separate QR per participant
+Data import	Google Sheets API (auto-sync)
+Ticket pricing	Fixed enum in backend (no tampering)
+Payment verification	Manual flag in admin panel
+
+const TICKET_PRICES = {
+  REGULAR_SINGLE: 650,
+  REGULAR_DUO: 1198,
+  FRONT_SINGLE: 950,
+  FRONT_DUO: 1550
+} as const;
+
+SQLite (Flutter Scanner App):
+-- Local events cache
+events (
+  id              TEXT PRIMARY KEY,
+  name            TEXT,
+  slug            TEXT,
+  date            TEXT,
+  public_key      TEXT,           -- For local signature verification
+  last_synced     TEXT
+)
+
+-- Local tickets cache
+tickets (
+  id              TEXT PRIMARY KEY,
+  event_id        TEXT,
+  ticket_code     TEXT,
+  name            TEXT,
+  category        TEXT,
+  qr_signature    TEXT,
+  checked_in      INTEGER DEFAULT 0,
+  checked_in_at   TEXT,
+  synced          INTEGER DEFAULT 0
+)
+
+-- Pending sync queue
+sync_queue (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id       TEXT,
+  action          TEXT,           -- 'checkin', 'undo_checkin'
+  timestamp       TEXT,
+  attempts        INTEGER DEFAULT 0,
+  last_attempt    TEXT,
+  synced          INTEGER DEFAULT 0
+)
+
+QR Code Payload Structure
+
+{
+  "v": 1,                        // Version
+  "tid": "ABC123",               // Ticket ID
+  "eid": "evt_2026_dsc",         // Event ID
+  "exp": 1760000000,             // Expiry timestamp
+  "cat": "VIP",                  // Category
+  "sig": "base64_ed25519_sig"    // Ed25519 signature
+}
+
+    Signing Flow:
+
+Create payload without signature
+JSON.stringify → UTF-8 bytes
+Sign with event's Ed25519 private key
+Append signature to payload
+Base64 encode entire payload for QR
+Verification Flow (offline):
+
+Decode Base64 → JSON
+Extract signature, rebuild unsigned payload
+Verify signature with public key (stored locally)
+Check expiry timestamp
+Lookup ticket in local SQLite
+API Endpoints
+Admin APIs (JWT Protected):
+
+Method	Endpoint	Description
+POST	/api/auth/login	Admin login
+POST	/api/events	Create event
+GET	/api/events	List all events
+GET	/api/events/:id	Get event details
+PUT	/api/events/:id	Update event
+POST	/api/events/:id/upload	Upload CSV participants
+POST	/api/events/:id/generate-tickets	Generate QR for all
+POST	/api/events/:id/send-emails	Send tickets via email
+GET	/api/events/:id/tickets	List tickets
+GET	/api/events/:id/stats	Attendance stats
+GET	/api/events/:id/export	Export attendance CSV
+POST	/api/scanners	Register scanner device
+GET	/api/scanners	List scanners
+Scanner APIs (API Key Protected):
+
+Method	Endpoint	Description
+GET	/api/sync/events/:id	Get event + public key
+GET	/api/sync/tickets/:eventId	Download all tickets
+POST	/api/sync/checkins	Push check-in queue
+GET	/api/sync/status/:eventId	Get sync status
+Key Features by Component
+Backend Services:
+
+ticketService – CRUD, CSV import, bulk operations
+qrService – Ed25519 key generation, signing, QR encoding
+emailService – AWS SES integration, templated emails
+syncService – Handle scanner sync, conflict resolution
+statsService – Real-time attendance stats, fraud detection
+Admin Panel Pages:
+
+Dashboard – Overview of all events
+Event Detail – Manage single event
+Participants – Upload, view, search tickets
+QR Generation – Generate & preview tickets
+Email Sender – Send tickets with preview
+Live Stats – Real-time check-in dashboard
+Scanners – Manage registered devices
+Reports – Export attendance data
+Flutter Scanner App Screens:
+
+Login/Setup – Enter event code, sync data
+Scanner – Camera QR scanning with feedback
+Manual Search – Search by name/ticket code
+Sync Status – Show pending syncs, last sync time
+Offline Indicator – Clear offline mode UI
+Stats – Local check-in count
+Sync Strategy
+Pre-Event:
+
+Scanner registers with backend (gets API key)
+Full ticket list downloaded to SQLite
+Public key stored locally for verification
+During Event (Offline):
+
+QR scanned → verify signature locally
+Check local SQLite for ticket existence
+If valid & not checked-in → mark locally
+Add to sync_queue table
+Background Sync (When Online):
+
+Periodic check for connectivity
+Batch POST all sync_queue items
+Backend applies conflict resolution (earliest wins)
+Mark items as synced, remove from queue
+Pull any new tickets (late additions)
+Conflict Resolution:
+
+Timestamp is recorded at scan time (device time)
+Backend compares all check-ins for same ticket
+Earliest timestamp wins, others flagged as duplicates
+Fraud log created for duplicates
+Implementation Phases
+Phase 1: Foundation (Week 1-2)
+Backend:
+
+Initialize Node.js + Express + TypeScript project
+Setup Prisma + PostgreSQL connection
+Create database schemas (events, tickets, admins)
+Implement admin auth (JWT)
+Build basic CRUD for events and tickets
+CSV upload & parsing
+Admin Panel:
+
+Initialize React + Vite + TypeScript
+Setup TailwindCSS + component library
+Auth pages (login)
+Events list & create flow
+CSV upload UI
+Flutter:
+
+Initialize Flutter project
+Setup SQLite with sqflite
+Create data models
+Basic scaffold with navigation
+Phase 2: QR & Core Features (Week 3-4)
+Backend:
+
+Implement Ed25519 key generation per event
+Build QR signing service
+Generate QR tickets endpoint
+AWS SES email integration
+Email templates with QR attachment
+Admin Panel:
+
+Ticket generation UI
+Individual ticket preview
+Bulk email sender with progress
+Basic stats dashboard
+Flutter:
+
+Integrate mobile_scanner for QR
+Implement Ed25519 signature verification
+Build scan result UI (valid/invalid/duplicate)
+Local check-in flow with SQLite
+Phase 3: Sync System (Week 5-6)
+Backend:
+
+Scanner registration & API key system
+/sync/tickets endpoint (paginated)
+/sync/checkins endpoint with conflict resolution
+Sync log & audit trail
+Flutter:
+
+API service for sync endpoints
+Pre-event full sync flow
+Sync queue implementation
+Background sync with connectivity check
+Offline mode indicator
+Admin Panel:
+
+Scanner management page
+Live sync status per scanner
+Phase 4: Polish & Security (Week 7-8)
+Backend:
+
+Rate limiting
+Input validation & sanitization
+Fraud detection (duplicate attempts)
+Performance optimization
+Admin Panel:
+
+Real-time attendance dashboard (WebSocket/polling)
+Charts & graphs (peak entry times)
+Fraud attempt log
+Export reports (CSV, PDF)
+Scanner performance stats
+Flutter:
+
+Error handling & edge cases
+Battery optimization
+Sound/haptic feedback
+Manual ticket lookup
+Offline data persistence verification
+Verification & Testing
+Backend:
+
+Unit tests for services with Jest
+Integration tests for APIs
+Test Ed25519 signing/verification
+Load test sync endpoints
+Admin Panel:
+
+Component tests with React Testing Library
+E2E tests with Playwright for critical flows
+Flutter:
+
+Unit tests for crypto verification
+Widget tests for scanner UI
+Manual testing on multiple devices
+Offline mode testing (airplane mode)
+Integration Testing:
+
+Full flow: CSV upload → QR generation → scan → sync
+Multi-scanner conflict resolution
+Offline queue processing
+Edge cases (expired tickets, tampered QRs)
+Key Decisions Made
+Decision	Choice	Rationale
+Backend	Node.js + Express	Fast development, JS ecosystem
+Database	PostgreSQL	Robust, relational data fits well
+Admin UI	React + Vite	Modern, fast HMR, rich ecosystem
+Email	AWS SES	Scalable, cost-effective for small scale
+QR Signing	Ed25519	Compact signatures, modern, public key can be safely embedded in app
+ORM	Prisma	Type-safe, great DX
+State (React)	Zustand or React Query	Lightweight, good for this scale
+State (Flutter)	Riverpod	Modern, testable
+Security Considerations
+QR Tamper Protection: Ed25519 signatures prevent QR forgery
+Scanner Auth: API keys per device, can be revoked
+Admin Auth: JWT with refresh tokens, role-based access
+Private Key Storage: Encrypted at rest in database
+Rate Limiting: Prevent sync endpoint abuse
+Audit Trail: All check-ins logged with timestamps
+HTTPS Only: All API communication encrypted

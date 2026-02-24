@@ -1,0 +1,21 @@
+name: eventqr_scanner
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cryptography: ^2.7.0
+  asn1lib: ^1.5.0
+  mobile_scanner: ^5.2.3
+  sqflite: ^2.3.3+1
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  http: ^1.2.2
+  connectivity_plus: ^6.0.0
+
+flutter:
+  uses-material-design: true
