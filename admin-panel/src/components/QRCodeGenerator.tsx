@@ -36,8 +36,7 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   useEffect(() {
     if (eventId) {
       loadTickets();
-    }
-  }, [eventId]);
+    }    // eslint-disable-next-line react-hooks/exhaustive-deps  }, [eventId]);
 
   const loadTickets = async () => {
     try {
