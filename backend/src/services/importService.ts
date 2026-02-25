@@ -15,7 +15,9 @@ const TICKET_TYPE_MAP: { [key: string]: TicketType } = {
 
 const getTicketType = (raw: string): TicketType | null => {
   if (!raw) return null;
-  const normalized = raw.trim().toUpperCase().replace(/\s+/g, " ");
+  // Remove price suffix (e.g., "REGULAR - ₹499" -> "REGULAR")
+  const withoutPrice = raw.split(" - ")[0].trim();
+  const normalized = withoutPrice.toUpperCase().replace(/\s+/g, " ");
   return TICKET_TYPE_MAP[normalized] || null;
 };
 
