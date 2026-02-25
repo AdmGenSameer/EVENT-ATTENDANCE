@@ -9,32 +9,24 @@ import { seatService } from "../services/seatService";
 import { liveRegistrationService } from "../services/liveRegistrationService";
 import { ticketService } from "../services/ticketService";
 import { logInfo, logWarn, logError } from "../utils/logger";
+import { ISeat } from "../db/models/Seat";
+import { Document, Types } from "mongoose";
 
 export const eventsRouter = Router();
 
-const mapSeat = (seat: {
-  id: string;
-  eventId: string;
-  section: string;
-  row: string;
-  number: number;
-  seatCode: string;
-  status: string;
-  ticketId?: string | null;
-  participantName?: string | null;
-}) => {
+const mapSeat = (seat: Document<unknown, {}, ISeat> & ISeat & Required<{ _id: Types.ObjectId }>) => {
   const section = seat.section.toLowerCase();
   const status = seat.status.toLowerCase();
 
   return {
-    id: seat.id,
-    eventId: seat.eventId,
+    id: seat._id.toString(),
+    eventId: seat.eventId.toString(),
     section,
     row: seat.row,
     number: seat.number,
     seatCode: seat.seatCode,
     status,
-    ticketId: seat.ticketId ?? null,
+    ticketId: seat.ticketId?.toString() ?? null,
     participantName: seat.participantName ?? null,
   };
 };
@@ -235,7 +227,7 @@ eventsRouter.post("/events/:id/generate-tickets", async (req, res) => {
     const eventId = req.params.id;
     const payload = generateTicketsSchema.parse(req.body || {});
     logInfo("events:generateTickets", `Generating tickets for ${eventId}`);
-    const result = await qrService.generateTicketsForEvent(eventId, payload.exp, payload.force ?? false);
+    const result = await qrService.generateTicketsForEvent(eventId);
     res.status(201).json({ result });
   } catch (error) {
     logWarn("events:generateTickets", "Failed to generate tickets", error);
