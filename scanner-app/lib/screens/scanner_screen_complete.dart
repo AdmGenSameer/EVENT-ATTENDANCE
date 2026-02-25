@@ -345,6 +345,39 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
     });
   }
 
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[700]),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _manualSync() async {
     final appState = context.read<AppState>();
     
@@ -648,27 +681,55 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
                   if (_lastScannedTicket != null) ...[
                     const SizedBox(height: 16),
                     Card(
+                      elevation: 4,
+                      color: _statusColor == Colors.green ? Colors.green[50] : Colors.orange[50],
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _lastScannedTicket!.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                Icon(
+                                  _statusColor == Colors.green ? Icons.check_circle : Icons.warning,
+                                  color: _statusColor,
+                                  size: 32,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _statusColor == Colors.green ? '✓ Valid Ticket' : '⚠ Already Checked In',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: _statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Ticket: ${_lastScannedTicket!.ticketCode}',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            if (_lastScannedTicket!.checkedInAt != null)
-                              Text(
-                                'At: ${DateFormat('HH:mm:ss').format(DateTime.parse(_lastScannedTicket!.checkedInAt!))}',
-                                style: TextStyle(color: Colors.grey[600]),
+                            const Divider(height: 24),
+                            _buildDetailRow(Icons.person, 'Name', _lastScannedTicket!.name),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(Icons.confirmation_number, 'Ticket Code', _lastScannedTicket!.ticketCode),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(Icons.category, 'Ticket Type', _lastScannedTicket!.category ?? 'N/A'),
+                            if (_lastScannedTicket!.personalEmail != null) ...[
+                              const SizedBox(height: 12),
+                              _buildDetailRow(Icons.email, 'Email', _lastScannedTicket!.personalEmail!),
+                            ],
+                            if (_lastScannedTicket!.seatCode != null) ...[
+                              const SizedBox(height: 12),
+                              _buildDetailRow(Icons.event_seat, 'Seat Assigned', _lastScannedTicket!.seatCode!),
+                            ],
+                            if (_lastScannedTicket!.checkedInAt != null) ...[
+                              const SizedBox(height: 12),
+                              _buildDetailRow(
+                                Icons.access_time,
+                                'Check-in Time',
+                                DateFormat('MMM dd, yyyy HH:mm:ss').format(DateTime.parse(_lastScannedTicket!.checkedInAt!)),
                               ),
+                            ],
                           ],
                         ),
                       ),
