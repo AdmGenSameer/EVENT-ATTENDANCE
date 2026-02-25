@@ -75,7 +75,7 @@ const App = () => {
         {activeTab === "participants" && <Participants eventId={eventId} />}
         {activeTab === "seating" && <SeatingArrangement eventId={eventId} />}
         {activeTab === "import" && <Import />}
-        {activeTab === "qr-generator" && <QRCodeGenerator />}
+        {activeTab === "qr-generator" && <QRCodeGenerator eventId={eventId} />}
       </div>
     </main>
   );
