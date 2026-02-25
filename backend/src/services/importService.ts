@@ -99,6 +99,8 @@ export const importService = {
             ticketCode,
             name: primaryName,
             personalEmail: primaryEmail,
+            registrationNo: registrationNo || null,
+            contactNo: contactNo || null,
             ticketType,
             duoParticipants: [{
               participantNumber: 1,
@@ -121,11 +123,14 @@ export const importService = {
 
             if (secondName && secondEmail) {
               const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+              const secondContact = (row["CONTACT NO.:"]) || "";
               await Ticket.create({
                 eventId: eventObjectId,
                 ticketCode: secondTicketCode,
                 name: secondName,
                 personalEmail: secondEmail,
+                registrationNo: secondRegistration || null,
+                contactNo: secondContact || null,
                 ticketType,
                 duoParticipants: [{
                   participantNumber: 2,
@@ -197,6 +202,8 @@ export const importService = {
         ticketCode,
         name: participantData.name,
         personalEmail: participantData.email,
+        registrationNo: participantData.registrationNo || null,
+        contactNo: participantData.contactNo || null,
         ticketType,
         duoParticipants: [{
           participantNumber: 1,
@@ -219,6 +226,8 @@ export const importService = {
           ticketCode: secondTicketCode,
           name: participantData.duo.name,
           personalEmail: participantData.duo.email,
+          registrationNo: participantData.duo.registrationNo || null,
+          contactNo: participantData.duo.contactNo || null,
           ticketType,
           duoParticipants: [{
             participantNumber: 2,

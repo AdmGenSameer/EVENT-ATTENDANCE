@@ -11,6 +11,8 @@ export interface ITicket extends Document {
   ticketCode: string;
   name: string;
   personalEmail: string;
+  registrationNo?: string;
+  contactNo?: string;
   ticketType: 'GUEST' | 'COUPLE' | 'STUDENT' | 'CHILD';
   checkedIn: boolean;
   checkedInAt: Date | null;
@@ -51,6 +53,14 @@ const TicketSchema = new Schema<ITicket>(
       required: true,
       lowercase: true,
       trim: true,
+    },
+    registrationNo: {
+      type: String,
+      default: null,
+    },
+    contactNo: {
+      type: String,
+      default: null,
     },
     ticketType: {
       type: String,
