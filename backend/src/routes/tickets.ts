@@ -376,3 +376,31 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
     });
   }
 });
+
+/**
+ * DELETE /api/tickets/events/:eventId/clear
+ * Clear all tickets for an event
+ */
+ticketsRouter.delete("/events/:eventId/clear", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    
+    logInfo("tickets:clear", `Clearing all tickets for event ${eventId}`);
+    
+    const result = await Ticket.deleteMany({ eventId });
+    
+    logInfo("tickets:clear", `Deleted ${result.deletedCount} tickets`);
+    
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: `Successfully deleted ${result.deletedCount} tickets`,
+    });
+  } catch (error) {
+    logWarn("tickets:clear", "Failed to clear tickets", error);
+    res.status(500).json({
+      error: "Failed to clear tickets",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});

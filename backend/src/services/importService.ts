@@ -1,24 +1,18 @@
 import { Ticket } from "../db/models/Ticket";
 import { parseCsv, CsvRow } from "../utils/csv";
 import { logInfo, logWarn } from "../utils/logger";
-import { TicketType } from "../constants/ticketTypes";
 import crypto from "crypto";
 import { Types } from "mongoose";
 
-// Map user-friendly ticket types to internal types
-const TICKET_TYPE_MAP: { [key: string]: TicketType } = {
-  "REGULAR": "GUEST",
-  "REGULAR DUO": "COUPLE",
-  "FRONT ROW SOLO": "STUDENT",
-  "FRONT ROW DUO": "CHILD",
-};
-
-const getTicketType = (raw: string): TicketType | null => {
+const getTicketType = (raw: string): string | null => {
   if (!raw) return null;
   // Remove price suffix (e.g., "REGULAR - ₹499" -> "REGULAR")
   const withoutPrice = raw.split(" - ")[0].trim();
   const normalized = withoutPrice.toUpperCase().replace(/\s+/g, " ");
-  return TICKET_TYPE_MAP[normalized] || null;
+  
+  // Validate against allowed types
+  const validTypes = ['REGULAR', 'REGULAR DUO', 'FRONT ROW SOLO', 'FRONT ROW DUO'];
+  return validTypes.includes(normalized) ? normalized : null;
 };
 
 const parseTimestamp = (raw: string) => {
@@ -116,7 +110,7 @@ export const importService = {
           logInfo("importService", `Created ticket for ${primaryName} (${ticketCode})`);
 
           // Handle duo participants (REGULAR DUO, FRONT ROW DUO)
-          if (ticketType === "COUPLE" || ticketType === "CHILD") {
+          if (ticketType === "REGULAR DUO" || ticketType === "FRONT ROW DUO") {
             const secondName = (row["NAME:"] || "").trim(); // Second NAME field
             const secondEmail = (row["COLLEGE EMAIL ID:"] || "").trim(); // Second COLLEGE EMAIL ID field
             const secondRegistration = (row["REGISTRATION NO.:"] || "").trim(); // Second REGISTRATION NO. field
@@ -219,7 +213,7 @@ export const importService = {
       logInfo("importService", `Added participant: ${participantData.name} (${ticketCode})`);
 
       // Handle duo participant
-      if ((ticketType === "COUPLE" || ticketType === "CHILD") && participantData.duo?.name && participantData.duo?.email) {
+      if ((ticketType === "REGULAR DUO" || ticketType === "FRONT ROW DUO") && participantData.duo?.name && participantData.duo?.email) {
         const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
         await Ticket.create({
           eventId: eventObjectId,

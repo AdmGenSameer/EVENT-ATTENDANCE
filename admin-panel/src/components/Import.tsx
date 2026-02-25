@@ -200,9 +200,59 @@ export const Import = () => {
     }
   };
 
+  const handleClearDatabase = async () => {
+    if (!window.confirm('⚠️ WARNING: This will delete ALL tickets for this event. This action cannot be undone. Are you sure?')) {
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await api.delete(`/tickets/events/${eventId}/clear`);
+
+      if (response.data.success) {
+        setMessage({
+          type: "success",
+          text: `✓ Database cleared: ${response.data.deletedCount} tickets deleted`,
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text: `✗ Failed to clear database`,
+        });
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: `✗ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="import-container">
-      <h2>Participant Management</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2>Participant Management</h2>
+        <button
+          onClick={handleClearDatabase}
+          disabled={loading}
+          style={{
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            padding: '0.5rem 1rem',
+            borderRadius: '4px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: '500',
+          }}
+        >
+          🗑️ Clear All Tickets
+        </button>
+      </div>
 
       {/* Sub-tabs */}
       <div className="import-subtabs">

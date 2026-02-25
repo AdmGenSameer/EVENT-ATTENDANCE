@@ -13,7 +13,7 @@ export interface ITicket extends Document {
   personalEmail: string;
   registrationNo?: string;
   contactNo?: string;
-  ticketType: 'GUEST' | 'COUPLE' | 'STUDENT' | 'CHILD';
+  ticketType: 'REGULAR' | 'REGULAR DUO' | 'FRONT ROW SOLO' | 'FRONT ROW DUO';
   checkedIn: boolean;
   checkedInAt: Date | null;
   checkInTime: Date | null;
@@ -64,7 +64,7 @@ const TicketSchema = new Schema<ITicket>(
     },
     ticketType: {
       type: String,
-      enum: ['GUEST', 'COUPLE', 'STUDENT', 'CHILD'],
+      enum: ['REGULAR', 'REGULAR DUO', 'FRONT ROW SOLO', 'FRONT ROW DUO'],
       required: true,
     },
     checkedIn: {
