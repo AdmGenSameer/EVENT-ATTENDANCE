@@ -260,6 +260,36 @@ class SyncService {
     }
   }
 
+  /// Sync blocked seats from backend to local database
+  Future<SyncResult> syncBlockedSeats(String eventId) async {
+    try {
+      // Check connectivity first
+      final online = await isOnline();
+      if (!online) {
+        debugPrint('[SyncService] Device offline, skipping blocked seats sync');
+        return SyncResult(success: false, message: 'Device offline');
+      }
+
+      debugPrint('[SyncService] Syncing blocked seats for event: $eventId');
+
+      final blockedSeats = await apiService.fetchBlockedSeats(eventId);
+      await dbService.syncBlockedSeats(eventId, blockedSeats);
+
+      debugPrint('[SyncService] Synced ${blockedSeats.length} blocked seats');
+      return SyncResult(
+        success: true,
+        message: 'Synced ${blockedSeats.length} blocked seats',
+        synced: blockedSeats.length,
+      );
+    } catch (e) {
+      debugPrint('[SyncService] Blocked seats sync failed: $e');
+      return SyncResult(
+        success: false,
+        message: 'Sync failed: ${e.toString()}',
+      );
+    }
+  }
+
   void debugPrint(String message) {
     // ignore: avoid_print
     print(message);

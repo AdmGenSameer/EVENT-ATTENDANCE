@@ -306,6 +306,28 @@ eventsRouter.get("/events/:id/seats", async (req, res) => {
   }
 });
 
+eventsRouter.get("/events/:id/seats/blocked", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    logInfo("events:seats:blocked", `Fetching blocked seats for ${eventId}`);
+    
+    const seats = await seatService.getSeatsForEvent(eventId);
+    const blockedSeats = seats
+      .filter(seat => seat.status === "BLOCKED")
+      .map(seat => ({
+        seatCode: seat.seatCode,
+        section: seat.section.toLowerCase(),
+        row: seat.row,
+        number: seat.number,
+      }));
+    
+    res.json({ blockedSeats });
+  } catch (error) {
+    logError("events:seats:blocked", "Failed to fetch blocked seats", error);
+    res.status(500).json({ error: "Failed to fetch blocked seats" });
+  }
+});
+
 eventsRouter.post("/events/:id/seats/:seatId/block", async (req, res) => {
   try {
     const { seatId } = req.params;

@@ -37,6 +37,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
   Ticket? _lastScannedTicket;
   Timer? _statusTimer;
   Timer? _syncTimer;
+  Timer? _blockedSeatsTimer;
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
   void dispose() {
     _statusTimer?.cancel();
     _syncTimer?.cancel();
+    _blockedSeatsTimer?.cancel();
     _scannerController.dispose();
     super.dispose();
   }
@@ -72,6 +74,17 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
           scannerId: appState.scannerId!,
         );
         _updateStatus();
+      }
+    });
+
+    // Sync blocked seats every 2 minutes if online
+    _blockedSeatsTimer = Timer.periodic(const Duration(minutes: 2), (_) async {
+      if (_isOnline) {
+        final appState = context.read<AppState>();
+        if (appState.currentEvent != null) {
+          await _syncService.syncBlockedSeats(appState.currentEvent!.id);
+          debugPrint('[Scanner] Blocked seats synced');
+        }
       }
     });
   }
@@ -360,18 +373,21 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
       
       // Sync tickets
       final ticketResult = await _syncService.syncTickets(appState.currentEvent!.id);
+      
+      // Sync blocked seats
+      final blockedSeatsResult = await _syncService.syncBlockedSeats(appState.currentEvent!.id);
 
       if (mounted) {
         Navigator.pop(context);
         
-        final message = checkInResult.success && ticketResult.success
-            ? 'Synced: ${checkInResult.synced} check-ins, ${ticketResult.ticketCount} tickets'
+        final message = checkInResult.success && ticketResult.success && blockedSeatsResult.success
+            ? 'Synced: ${checkInResult.synced} check-ins, ${ticketResult.ticketCount} tickets, ${blockedSeatsResult.synced} blocked seats'
             : 'Sync completed with errors';
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: checkInResult.success && ticketResult.success
+            backgroundColor: checkInResult.success && ticketResult.success && blockedSeatsResult.success
                 ? Colors.green
                 : Colors.orange,
           ),

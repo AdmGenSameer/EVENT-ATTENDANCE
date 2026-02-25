@@ -133,8 +133,9 @@ class SeatAllocationService {
             AND section = ?
             AND device_id = ?
             AND pair_size = 2
+            AND status NOT IN ('ASSIGNED', 'BLOCKED')
           GROUP BY pair_id, row_index, pair_index
-          HAVING SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) = 2
+          HAVING COUNT(*) = 2
           ORDER BY row_index ASC, pair_index ASC
           LIMIT 1
           """,
@@ -147,7 +148,7 @@ class SeatAllocationService {
         final seats = await txn.query(
           "seat_allocations",
           columns: ["seat_code"],
-          where: "event_id = ? AND pair_id = ? AND status = 'AVAILABLE'",
+          where: "event_id = ? AND pair_id = ? AND status NOT IN ('ASSIGNED', 'BLOCKED')",
           whereArgs: [eventId, pairId],
           orderBy: "number ASC",
         );
@@ -173,7 +174,7 @@ class SeatAllocationService {
       final seatRows = await txn.query(
         "seat_allocations",
         columns: ["id", "seat_code", "pair_id"],
-        where: "event_id = ? AND section = ? AND device_id = ? AND status = 'AVAILABLE'",
+        where: "event_id = ? AND section = ? AND device_id = ? AND status NOT IN ('ASSIGNED', 'BLOCKED')",
         whereArgs: [eventId, section, deviceId],
         orderBy: "row_index ASC, pair_index ASC, number ASC",
         limit: 1,

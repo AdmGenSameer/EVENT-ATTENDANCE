@@ -532,4 +532,33 @@ class DatabaseService {
       rethrow;
     }
   }
+
+  // Blocked seats sync operations
+  Future<void> syncBlockedSeats(String eventId, List<Map<String, dynamic>> blockedSeats) async {
+    try {
+      debugPrint("[DatabaseService] syncing ${blockedSeats.length} blocked seats for event $eventId");
+      final db = await database;
+      
+      await db.transaction((txn) async {
+        // First, reset all BLOCKED seats back to AVAILABLE
+        await txn.rawUpdate(
+          "UPDATE seat_allocations SET status = 'AVAILABLE' WHERE event_id = ? AND status = 'BLOCKED'",
+          [eventId],
+        );
+
+        // Then, mark the new blocked seats
+        for (final seat in blockedSeats) {
+          await txn.rawUpdate(
+            "UPDATE seat_allocations SET status = 'BLOCKED' WHERE event_id = ? AND seat_code = ?",
+            [eventId, seat['seatCode']],
+          );
+        }
+      });
+      
+      debugPrint("[DatabaseService] blocked seats synced successfully");
+    } catch (error) {
+      debugPrint("[DatabaseService] sync blocked seats failed: $error");
+      rethrow;
+    }
+  }
 }

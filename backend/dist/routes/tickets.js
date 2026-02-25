@@ -12,14 +12,14 @@ const googleSheetsService_1 = require("../services/googleSheetsService");
 const logger_1 = require("../utils/logger");
 const multer_1 = __importDefault(require("multer"));
 const Ticket_1 = require("../db/models/Ticket");
-const ParticipantsModel_1 = require("../db/models/ParticipantsModel");
 exports.ticketsRouter = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
+// GET /api/events/tickets/:regNo
 exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
     try {
         const { regNo } = req.params;
-        const participant = await ParticipantsModel_1.Participants.findOne({
-            registrationNumber: regNo,
+        const participant = await Ticket_1.Ticket.findOne({
+            registrationNo: regNo,
         }).lean();
         if (!participant) {
             return res.status(404).json({
@@ -27,13 +27,24 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
                 error: "Participant not found",
             });
         }
+        // Map duo participants
+        const duo = participant.duoParticipants?.map(d => ({
+            participantNumber: d.participantNumber,
+            name: d.fullName,
+            status: d.status,
+        }));
         res.status(200).json({
             success: true,
             participant: {
                 name: participant.name,
-                email: participant.email,
-                registrationNumber: participant.registrationNumber,
+                personalEmail: participant.personalEmail,
+                registrationNo: participant.registrationNo,
+                contactNo: participant.contactNo,
+                ticketType: participant.ticketType,
                 checkedIn: participant.checkedIn,
+                checkedInAt: participant.checkedInAt || participant.checkInTime || null,
+                seatNumber: participant.seatNumber || null,
+                duo: duo && duo.length ? duo[0] : null, // if duo exists, send first
             },
             qrCode: participant.qrData || null,
         });

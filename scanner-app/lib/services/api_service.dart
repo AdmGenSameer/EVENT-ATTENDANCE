@@ -148,4 +148,27 @@ class ApiService {
       rethrow;
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchBlockedSeats(String eventId) async {
+    try {
+      final url = Uri.parse('$baseUrl/events/$eventId/seats/blocked');
+      debugPrint('[ApiService] Fetching blocked seats for event: $eventId');
+
+      final response = await client.get(url).timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final blockedSeats = List<Map<String, dynamic>>.from(data['blockedSeats']);
+        debugPrint('[ApiService] Fetched ${blockedSeats.length} blocked seats');
+        return blockedSeats;
+      } else {
+        throw Exception('Failed to fetch blocked seats: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error fetching blocked seats: $e');
+      rethrow;
+    }
+  }
 }
