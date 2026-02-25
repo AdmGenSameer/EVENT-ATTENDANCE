@@ -52,6 +52,7 @@ exports.scannerRouter.get("/sync/events/:id/tickets", async (req, res) => {
 const checkInSchema = zod_1.z.object({
     ticketCode: zod_1.z.string(),
     timestamp: zod_1.z.string(),
+    seatCode: zod_1.z.string().optional(),
 });
 exports.scannerRouter.post("/sync/checkins", async (req, res) => {
     try {
@@ -67,7 +68,8 @@ exports.scannerRouter.post("/sync/checkins", async (req, res) => {
         // Process each check-in with conflict resolution
         for (const item of items) {
             try {
-                const result = await ticketService_1.ticketService.checkInTicket(item.ticketCode, eventId, item.timestamp, req.body.scannerId || "scanner-device");
+                const result = await ticketService_1.ticketService.checkInTicket(item.ticketCode, eventId, item.timestamp, req.body.scannerId || "scanner-device", item.seatCode // Pass seat code from mobile device
+                );
                 results.accepted++;
                 if (result.conflict) {
                     results.conflicts++;

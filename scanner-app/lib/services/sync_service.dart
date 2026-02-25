@@ -79,7 +79,7 @@ class SyncService {
 
       debugPrint('[SyncService] Syncing ${pendingItems.length} items');
 
-      // Convert to API format (ticketCode required by backend)
+      // Convert to API format (ticketCode and seatCode required by backend)
       final items = <Map<String, dynamic>>[];
       for (final item in pendingItems) {
         final ticket = await dbService.getTicket(item.ticketId);
@@ -89,6 +89,7 @@ class SyncService {
         items.add({
           'ticketCode': ticket.ticketCode,
           'timestamp': item.timestamp,
+          'seatCode': ticket.seatCode, // Include seat assigned by mobile device
         });
       }
 

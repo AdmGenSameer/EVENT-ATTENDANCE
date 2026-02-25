@@ -51,6 +51,7 @@ scannerRouter.get("/sync/events/:id/tickets", async (req, res) => {
 const checkInSchema = z.object({
   ticketCode: z.string(),
   timestamp: z.string(),
+  seatCode: z.string().optional(),
 });
 
 scannerRouter.post("/sync/checkins", async (req, res) => {
@@ -73,7 +74,8 @@ scannerRouter.post("/sync/checkins", async (req, res) => {
           item.ticketCode,
           eventId,
           item.timestamp,
-          req.body.scannerId || "scanner-device"
+          req.body.scannerId || "scanner-device",
+          item.seatCode // Pass seat code from mobile device
         );
         
         results.accepted++;

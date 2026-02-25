@@ -29,7 +29,7 @@ export const ticketService = {
     }
   },
 
-  async checkInTicket(ticketCode: string, eventId: string, timestamp: string, scannerId?: string) {
+  async checkInTicket(ticketCode: string, eventId: string, timestamp: string, scannerId?: string, seatCode?: string) {
     try {
       logInfo("ticketService:checkIn", `Checking in ticket ${ticketCode}`);
       
@@ -54,9 +54,12 @@ export const ticketService = {
             checkedInAt: new Date(timestamp),
             checkInTime: new Date(timestamp),
             checkInBy: scannerId || "unknown",
+            seatNumber: seatCode || ticket.seatNumber, // Update seat if provided
           });
 
-          if (!ticket.seatNumber) {
+          if (!ticket.seatNumber && seatCode) {
+            await seatService.assignSpecificSeat(eventId, String(ticket._id), ticket.name, seatCode);
+          } else if (!ticket.seatNumber) {
             await seatService.assignSeat(eventId, String(ticket._id), ticket.name);
           }
           return { conflict: true, resolution: "updated", ticket };
@@ -64,7 +67,9 @@ export const ticketService = {
           // Existing check-in is earlier, keep it
           logInfo("ticketService:checkIn", `Resolving conflict: keeping existing for ${ticketCode}`);
 
-          if (!ticket.seatNumber) {
+          if (!ticket.seatNumber && seatCode) {
+            await seatService.assignSpecificSeat(eventId, String(ticket._id), ticket.name, seatCode);
+          } else if (!ticket.seatNumber) {
             await seatService.assignSeat(eventId, String(ticket._id), ticket.name);
           }
           return { conflict: true, resolution: "kept_existing", ticket };
@@ -79,12 +84,15 @@ export const ticketService = {
           checkedInAt: new Date(timestamp),
           checkInTime: new Date(timestamp),
           checkInBy: scannerId || "unknown",
+          seatNumber: seatCode || ticket.seatNumber, // Update seat if provided
         },
         { new: true }
       );
 
       logInfo("ticketService:checkIn", `Ticket ${ticketCode} checked in successfully`);
-      if (updatedTicket && !updatedTicket.seatNumber) {
+      if (updatedTicket && !updatedTicket.seatNumber && seatCode) {
+        await seatService.assignSpecificSeat(eventId, String(updatedTicket._id), updatedTicket.name, seatCode);
+      } else if (updatedTicket && !updatedTicket.seatNumber) {
         await seatService.assignSeat(eventId, String(updatedTicket._id), updatedTicket.name);
       }
       return { conflict: false, resolution: "new", ticket: updatedTicket };

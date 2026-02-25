@@ -31,7 +31,7 @@ exports.ticketService = {
             throw error;
         }
     },
-    async checkInTicket(ticketCode, eventId, timestamp, scannerId) {
+    async checkInTicket(ticketCode, eventId, timestamp, scannerId, seatCode) {
         try {
             (0, logger_1.logInfo)("ticketService:checkIn", `Checking in ticket ${ticketCode}`);
             const ticket = await Ticket_1.Ticket.findOne({
@@ -52,8 +52,12 @@ exports.ticketService = {
                         checkedInAt: new Date(timestamp),
                         checkInTime: new Date(timestamp),
                         checkInBy: scannerId || "unknown",
+                        seatNumber: seatCode || ticket.seatNumber, // Update seat if provided
                     });
-                    if (!ticket.seatNumber) {
+                    if (!ticket.seatNumber && seatCode) {
+                        await seatService_1.seatService.assignSpecificSeat(eventId, String(ticket._id), ticket.name, seatCode);
+                    }
+                    else if (!ticket.seatNumber) {
                         await seatService_1.seatService.assignSeat(eventId, String(ticket._id), ticket.name);
                     }
                     return { conflict: true, resolution: "updated", ticket };
@@ -61,7 +65,10 @@ exports.ticketService = {
                 else {
                     // Existing check-in is earlier, keep it
                     (0, logger_1.logInfo)("ticketService:checkIn", `Resolving conflict: keeping existing for ${ticketCode}`);
-                    if (!ticket.seatNumber) {
+                    if (!ticket.seatNumber && seatCode) {
+                        await seatService_1.seatService.assignSpecificSeat(eventId, String(ticket._id), ticket.name, seatCode);
+                    }
+                    else if (!ticket.seatNumber) {
                         await seatService_1.seatService.assignSeat(eventId, String(ticket._id), ticket.name);
                     }
                     return { conflict: true, resolution: "kept_existing", ticket };
@@ -73,9 +80,13 @@ exports.ticketService = {
                 checkedInAt: new Date(timestamp),
                 checkInTime: new Date(timestamp),
                 checkInBy: scannerId || "unknown",
+                seatNumber: seatCode || ticket.seatNumber, // Update seat if provided
             }, { new: true });
             (0, logger_1.logInfo)("ticketService:checkIn", `Ticket ${ticketCode} checked in successfully`);
-            if (updatedTicket && !updatedTicket.seatNumber) {
+            if (updatedTicket && !updatedTicket.seatNumber && seatCode) {
+                await seatService_1.seatService.assignSpecificSeat(eventId, String(updatedTicket._id), updatedTicket.name, seatCode);
+            }
+            else if (updatedTicket && !updatedTicket.seatNumber) {
                 await seatService_1.seatService.assignSeat(eventId, String(updatedTicket._id), updatedTicket.name);
             }
             return { conflict: false, resolution: "new", ticket: updatedTicket };

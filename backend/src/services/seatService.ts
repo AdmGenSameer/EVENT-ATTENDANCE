@@ -187,6 +187,70 @@ export class SeatService {
     }
   }
 
+  async assignSpecificSeat(eventId: string, ticketId: string, participantName: string, seatCode: string) {
+    try {
+      logInfo("seatService:assignSpecific", `Assigning specific seat ${seatCode} for ticket ${ticketId}`);
+
+      const eventObjectId = new Types.ObjectId(eventId);
+      const ticketObjectId = new Types.ObjectId(ticketId);
+
+      // Clean up seat code format - mobile sends "F-A-01" but we store "FA1" or "FA01"
+      const cleanSeatCode = seatCode.replace(/-/g, '').replace(/^([A-Z])([A-Z])0*/, '$1$2');
+
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Try to find and assign the specific seat
+        const specificSeat = await Seat.findOneAndUpdate(
+          { 
+            eventId: eventObjectId, 
+            seatCode: { $in: [seatCode, cleanSeatCode] }, // Try both formats
+            status: { $in: ["AVAILABLE", "BLOCKED"] } // Allow assigning blocked seats if mobile device already assigned
+          },
+          {
+            status: "ASSIGNED",
+            ticketId: ticketObjectId,
+            participantName,
+            assignedAt: new Date(),
+          },
+          {
+            new: true,
+            session,
+          }
+        );
+
+        if (!specificSeat) {
+          // Seat not found or already assigned, fall back to any available seat
+          logWarn("seatService:assignSpecific", `Seat ${seatCode} not available, assigning next available`);
+          await session.abortTransaction();
+          session.endSession();
+          return await this.assignSeat(eventId, ticketId, participantName);
+        }
+
+        await Ticket.findByIdAndUpdate(
+          ticketObjectId,
+          { seatNumber: specificSeat.seatCode },
+          { session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+
+        logInfo("seatService:assignSpecific", `Assigned specific seat ${specificSeat.seatCode} to ticket ${ticketId}`);
+        return specificSeat;
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
+      }
+
+    } catch (error) {
+      logError("seatService:assignSpecific", "Failed to assign specific seat", error);
+      throw error;
+    }
+  }
+
   async getSeatStatistics(eventId: string) {
     try {
       const eventObjectId = new Types.ObjectId(eventId);
