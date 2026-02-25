@@ -266,21 +266,42 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
       return res.status(400).json({ error: "No data found in Google Sheet" });
     }
 
+    // Log available columns for debugging
+    if (sheetsData.rows.length > 0) {
+      const sampleRow = sheetsData.rows[0];
+      const columns = Object.keys(sampleRow);
+      logInfo("tickets:sync-sheets", `Found ${columns.length} columns: ${columns.join(", ")}`);
+    }
+
     // Convert Google Sheets rows to CSV format and import
     // Map sheet columns to expected import format
     const importedRows: any[] = [];
     const skippedRows: any[] = [];
     const errorsList: string[] = [];
 
+    // Helper function to find column value with flexible matching
+    const findColumnValue = (row: Record<string, string>, possibleNames: string[]): string => {
+      for (const name of possibleNames) {
+        if (row[name]) return row[name];
+      }
+      // Try case-insensitive match
+      const keys = Object.keys(row);
+      for (const name of possibleNames) {
+        const match = keys.find(k => k.toLowerCase() === name.toLowerCase());
+        if (match && row[match]) return row[match];
+      }
+      return "";
+    };
+
     for (let i = 0; i < sheetsData.rows.length; i++) {
       const row = sheetsData.rows[i];
       try {
-        // Extract fields from Google Sheets row
-        const name = row["NAME"] || row["name"] || "";
-        const registrationNo = row["Registration No."] || row["registration no."] || row["REGISTRATION NO."] || "";
-        const email = row["College Email Id"] || row["college email id"] || row["EMAIL"] || "";
-        const contactNo = row["Contact No."] || row["contact no."] || row["CONTACT NO."] || "";
-        const ticketType = row["TICKET TYPE"] || row["ticket type"] || "";
+        // Extract fields from Google Sheets row with flexible column matching
+        const name = findColumnValue(row, ["NAME", "name", "Name", "Full Name", "FULL NAME"]);
+        const registrationNo = findColumnValue(row, ["Registration No.", "REGISTRATION NO.", "registration no.", "Reg No", "REG NO"]);
+        const email = findColumnValue(row, ["College Email Id", "COLLEGE EMAIL ID", "college email id", "Email", "EMAIL", "email"]);
+        const contactNo = findColumnValue(row, ["Contact No.", "CONTACT NO.", "contact no.", "Phone", "PHONE", "Mobile", "MOBILE"]);
+        const ticketType = findColumnValue(row, ["TICKET TYPE", "ticket type", "Ticket Type", "Type", "TYPE"]);
 
         if (!name || !email || !ticketType) {
           skippedRows.push(i + 1);
@@ -299,10 +320,10 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
           ...(ticketType.toLowerCase().includes("duo")
             ? {
                 duo: {
-                  name: row["NAME:"] || row["name:"] || "",
-                  email: row["COLLEGE EMAIL ID:"] || row["email:"] || "",
-                  registrationNo: row["REGISTRATION NO.:"] || row["registration no.:"] || "",
-                  contactNo: row["CONTACT NO.:"] || row["contact no.:"] || "",
+                  name: findColumnValue(row, ["NAME:", "name:", "Name:", "NAME (2nd participant)"]),
+                  email: findColumnValue(row, ["COLLEGE EMAIL ID:", "email:", "Email:", "EMAIL (2nd participant)"]),
+                  registrationNo: findColumnValue(row, ["REGISTRATION NO.:", "registration no.:", "Reg No (2nd)"]),
+                  contactNo: findColumnValue(row, ["CONTACT NO.:", "contact no.:", "Phone (2nd)"]),
                 },
               }
             : {}),
