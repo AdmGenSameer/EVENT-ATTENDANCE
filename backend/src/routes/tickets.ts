@@ -280,6 +280,9 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
       const sampleRow = sheetsData.rows[0];
       const columns = Object.keys(sampleRow);
       logInfo("tickets:sync-sheets", `Found ${columns.length} columns: ${columns.join(", ")}`);
+      
+      // Log first row data for debugging
+      logInfo("tickets:sync-sheets", `First row data: ${JSON.stringify(sampleRow).substring(0, 200)}`);
     }
 
     // Convert Google Sheets rows to CSV format and import
@@ -308,9 +311,15 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
         // Extract fields from Google Sheets row with flexible column matching
         const name = findColumnValue(row, ["NAME", "name", "Name", "Full Name", "FULL NAME"]);
         const registrationNo = findColumnValue(row, ["Registration No.", "REGISTRATION NO.", "registration no.", "Reg No", "REG NO"]);
-        const email = findColumnValue(row, ["College Email Id", "COLLEGE EMAIL ID", "college email id", "Email", "EMAIL", "email"]);
+        const email = findColumnValue(row, ["College Email Id", "COLLEGE EMAIL ID", "college email id", "Email", "EMAIL", "email", "Email Address"]);
         const contactNo = findColumnValue(row, ["Contact No.", "CONTACT NO.", "contact no.", "Phone", "PHONE", "Mobile", "MOBILE"]);
-        const ticketType = findColumnValue(row, ["TICKET TYPE", "ticket type", "Ticket Type", "Type", "TYPE"]);
+        const ticketType = findColumnValue(row, ["TICKET TYPE:", "TICKET TYPE", "ticket type:", "ticket type", "Ticket Type", "Type", "TYPE"]);
+
+        // Debug log for first few rows
+        if (i < 3) {
+          logInfo("tickets:sync-sheets", `Row ${i + 1} - name: "${name}", email: "${email}", ticketType: "${ticketType}"`);
+          logInfo("tickets:sync-sheets", `Row ${i + 1} - Available keys: ${Object.keys(row).join(", ")}`);
+        }
 
         if (!name || !email || !ticketType) {
           skippedRows.push(i + 1);
@@ -331,8 +340,8 @@ ticketsRouter.post("/sync-google-sheets", async (req, res) => {
                 duo: {
                   name: findColumnValue(row, ["NAME:", "name:", "Name:", "NAME (2nd participant)"]),
                   email: findColumnValue(row, ["COLLEGE EMAIL ID:", "email:", "Email:", "EMAIL (2nd participant)"]),
-                  registrationNo: findColumnValue(row, ["REGISTRATION NO.:", "registration no.:", "Reg No (2nd)"]),
-                  contactNo: findColumnValue(row, ["CONTACT NO.:", "contact no.:", "Phone (2nd)"]),
+                  registrationNo: findColumnValue(row, ["REGISTRATION NO.:", "REGISTRATION NO:", "registration no.:", "Reg No (2nd)"]),
+                  contactNo: findColumnValue(row, ["CONTACT NO.:", "CONTACT NO:", "contact no.:", "Phone (2nd)"]),
                 },
               }
             : {}),
