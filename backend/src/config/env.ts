@@ -4,7 +4,7 @@ dotenv.config();
 
 export const env = {
   port: Number(process.env.PORT || 4000),
-  databaseUrl: process.env.DATABASE_URL || "",
+  MONGODB_URI: process.env.MONGODB_URI || "",
   supabaseJwtIssuer: process.env.SUPABASE_JWT_ISSUER || "",
   supabaseJwtAudience: process.env.SUPABASE_JWT_AUDIENCE || "authenticated",
   supabaseJwksUrl: process.env.SUPABASE_JWKS_URL || "",

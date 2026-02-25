@@ -48,4 +48,23 @@ export type TicketRecord = {
   checkedInAt?: string | null;
   createdAt: string;
   qrData?: string | null;
+  seatNumber?: string | null;
+};
+
+export type SeatStatus = "available" | "assigned" | "blocked";
+
+export type Seat = {
+  id: string;
+  section: "front" | "rear" | "balcony";
+  row: string;
+  number: number;
+  seatCode: string;
+  status: SeatStatus;
+  ticketId?: string | null;
+  participantName?: string | null;
+};
+
+export type LiveRegistrationStatus = {
+  isLive: boolean;
+  updatedAt: string;
 };

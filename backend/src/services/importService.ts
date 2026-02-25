@@ -1,15 +1,22 @@
-import { prisma } from "../db/prisma";
+import { Ticket } from "../db/models/Ticket";
 import { parseCsv, CsvRow } from "../utils/csv";
 import { logInfo, logWarn } from "../utils/logger";
 import { TicketType } from "../constants/ticketTypes";
 import crypto from "crypto";
+import { Types } from "mongoose";
+
+// Map user-friendly ticket types to internal types
+const TICKET_TYPE_MAP: { [key: string]: TicketType } = {
+  "REGULAR": "GUEST",
+  "REGULAR DUO": "COUPLE",
+  "FRONT ROW SOLO": "STUDENT",
+  "FRONT ROW DUO": "CHILD",
+};
 
 const getTicketType = (raw: string): TicketType | null => {
-  const normalized = raw.trim().toUpperCase().replace(/\s+/g, "_");
-  if (normalized === "REGULAR_SINGLE" || normalized === "REGULAR_DUO" || normalized === "FRONT_SINGLE" || normalized === "FRONT_DUO") {
-    return normalized as TicketType;
-  }
-  return null;
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase().replace(/\s+/g, " ");
+  return TICKET_TYPE_MAP[normalized] || null;
 };
 
 const parseTimestamp = (raw: string) => {
@@ -21,8 +28,6 @@ const parseTimestamp = (raw: string) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const generateGroupId = () => crypto.randomUUID();
-
 const generateTicketCode = (prefix: string) => {
   const random = crypto.randomBytes(4).toString("hex").toUpperCase();
   return `${prefix}-${random}`;
@@ -33,14 +38,19 @@ export const importService = {
     try {
       logInfo("importService:csv", `Parsing CSV for event ${eventId}`);
       const rows = parseCsv(csvText);
-      return await importService.importTicketsFromRows(eventId, rows, "csv");
+      return await importService.importTicketsFromRegistrationSheet(eventId, rows);
     } catch (error) {
       logWarn("importService:csv", "Failed to import CSV", error);
       throw error;
     }
   },
 
-  async importTicketsFromRows(eventId: string, rows: CsvRow[], source: "csv" | "sheets") {
+  /**
+   * Parse registration sheet with structure:
+   * NAME, Registration No., College Email Id, Contact No., Batch, Referral Code, TICKET TYPE,
+   * NAME (2nd participant), REGISTRATION NO., COLLEGE EMAIL ID, CONTACT NO.
+   */
+  async importTicketsFromRegistrationSheet(eventId: string, rows: CsvRow[]) {
     try {
       if (!rows.length) {
         return { imported: 0, skipped: 0, errors: [] as string[] };
@@ -52,78 +62,163 @@ export const importService = {
 
       for (const [index, row] of rows.entries()) {
         try {
+          // Parse ticket type (supports: regular, regular duo, front row solo, front row duo)
           const ticketType = getTicketType(row["TICKET TYPE"] || "");
           if (!ticketType) {
-            errors.push(`Row ${index + 1}: invalid ticket type`);
+            errors.push(`Row ${index + 1}: invalid ticket type "${row["TICKET TYPE"]}"`);
             skipped += 1;
             continue;
           }
 
-          const duoGroupId = ticketType.endsWith("DUO") ? generateGroupId() : null;
-          const submittedAt = parseTimestamp(row["Timestamp"] || "");
-          const baseData = {
-            eventId,
-            submittedAt: submittedAt ?? undefined,
-            name: row["NAME"] || "",
-            personalEmail: row["Email Address"] || "",
-            collegeEmail: row["College Email Id"] || undefined,
-            regNo: row["Registration No."] || undefined,
-            phone: row["Contact No."] || undefined,
-            batch: row["Batch"] || undefined,
-            referral: row["Referral Code"] || undefined,
-            txnId: row["Transaction ID"] || undefined,
-            payerName: row["Beneficiary Name"] || undefined,
-            paymentProofUrl: row["Payment Screenshot"] || undefined,
+          // Primary participant
+          const primaryName = (row["NAME"] || "").trim();
+          const primaryEmail = (row["COLLEGE EMAIL ID"] || row["College Email Id"] || "").trim();
+          const registrationNo = (row["REGISTRATION NO."] || row["Registration No."] || "").trim();
+          const contactNo = (row["CONTACT NO."] || row["Contact No."] || "").trim();
+
+          if (!primaryName || !primaryEmail) {
+            errors.push(`Row ${index + 1}: missing primary participant name or email`);
+            skipped += 1;
+            continue;
+          }
+
+          // Create primary ticket
+          const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+          const primaryTicket = await Ticket.create({
+            eventId: new Types.ObjectId(eventId),
+            ticketCode,
+            name: primaryName,
+            personalEmail: primaryEmail,
             ticketType,
-            duoGroupId: duoGroupId ?? undefined,
-          };
-
-          if (!baseData.name || !baseData.personalEmail) {
-            errors.push(`Row ${index + 1}: missing name or email`);
-            skipped += 1;
-            continue;
-          }
-
-          const createTicket = async (participantName: string, participantEmail: string, participantRegNo?: string, participantCollegeEmail?: string) => {
-            return prisma.ticket.create({
-              data: {
-                ...baseData,
-                name: participantName,
-                personalEmail: participantEmail,
-                regNo: participantRegNo || baseData.regNo,
-                collegeEmail: participantCollegeEmail || baseData.collegeEmail,
-                ticketCode: generateTicketCode(eventId.slice(0, 4).toUpperCase()),
-              },
-            });
-          };
-
-          await createTicket(baseData.name, baseData.personalEmail, baseData.regNo, baseData.collegeEmail);
+            duoParticipants: [{
+              participantNumber: 1,
+              fullName: primaryName,
+              status: "registered"
+            }],
+            checkedIn: false,
+            checkedInAt: null,
+            checkInTime: null,
+            checkInBy: null,
+          });
           imported += 1;
+          logInfo("importService", `Created ticket for ${primaryName} (${ticketCode})`);
 
-          if (ticketType.endsWith("DUO")) {
-            const duoName = row["second participant details(for duo tickets) name"] || row["name"] || "";
-            const duoEmail = row["second participant details(for duo tickets) email id"] || row["email id"] || "";
-            const duoRegNo = row["second participant details(for duo tickets) registartion no"] || row["registartion no"] || "";
-            const duoCollegeEmail = row["second participant details(for duo tickets) college email id"] || row["college email id"] || "";
-            if (duoName && duoEmail) {
-              await createTicket(duoName, duoEmail, duoRegNo, duoCollegeEmail);
+          // Handle duo participants (REGULAR DUO, FRONT ROW DUO)
+          if (ticketType === "COUPLE" || ticketType === "CHILD") {
+            const secondName = (row["NAME:"] || "").trim(); // Second NAME field
+            const secondEmail = (row["COLLEGE EMAIL ID:"] || "").trim(); // Second COLLEGE EMAIL ID field
+            const secondRegistration = (row["REGISTRATION NO.:"] || "").trim(); // Second REGISTRATION NO. field
+
+            if (secondName && secondEmail) {
+              const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+              await Ticket.create({
+                eventId: new Types.ObjectId(eventId),
+                ticketCode: secondTicketCode,
+                name: secondName,
+                personalEmail: secondEmail,
+                ticketType,
+                duoParticipants: [{
+                  participantNumber: 2,
+                  fullName: secondName,
+                  status: "registered"
+                }],
+                checkedIn: false,
+                checkedInAt: null,
+                checkInTime: null,
+                checkInBy: null,
+              });
               imported += 1;
+              logInfo("importService", `Created duo ticket for ${secondName} (${secondTicketCode})`);
             } else {
-              errors.push(`Row ${index + 1}: missing second participant info`);
-              skipped += 1;
+              logWarn("importService", `Row ${index + 1}: duo ticket missing second participant data`);
             }
           }
-        } catch (error) {
-          logWarn(`importService:${source}`, `Row ${index + 1} failed`, error);
-          errors.push(`Row ${index + 1}: failed to import`);
+        } catch (rowError) {
+          errors.push(`Row ${index + 1}: ${rowError instanceof Error ? rowError.message : "unknown error"}`);
           skipped += 1;
         }
       }
 
-      logInfo(`importService:${source}`, `Imported ${imported}, skipped ${skipped}`);
+      logInfo("importService", `Import complete: ${imported} imported, ${skipped} skipped`);
       return { imported, skipped, errors };
     } catch (error) {
-      logWarn(`importService:${source}`, "Failed to import rows", error);
+      logWarn("importService", "Failed to process registration sheet", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add a single participant manually
+   */
+  async addParticipant(eventId: string, participantData: {
+    name: string;
+    email: string;
+    registrationNo?: string;
+    contactNo?: string;
+    ticketType: string;
+    duo?: {
+      name: string;
+      email: string;
+      registrationNo?: string;
+      contactNo?: string;
+    };
+  }) {
+    try {
+      const ticketType = getTicketType(participantData.ticketType);
+      if (!ticketType) {
+        throw new Error(`Invalid ticket type: ${participantData.ticketType}`);
+      }
+
+      if (!participantData.name || !participantData.email) {
+        throw new Error("Name and email are required");
+      }
+
+      const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+      const ticket = await Ticket.create({
+        eventId: new Types.ObjectId(eventId),
+        ticketCode,
+        name: participantData.name,
+        personalEmail: participantData.email,
+        ticketType,
+        duoParticipants: [{
+          participantNumber: 1,
+          fullName: participantData.name,
+          status: "registered"
+        }],
+        checkedIn: false,
+        checkedInAt: null,
+        checkInTime: null,
+        checkInBy: null,
+      });
+
+      logInfo("importService", `Added participant: ${participantData.name} (${ticketCode})`);
+
+      // Handle duo participant
+      if ((ticketType === "COUPLE" || ticketType === "CHILD") && participantData.duo?.name && participantData.duo?.email) {
+        const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+        await Ticket.create({
+          eventId: new Types.ObjectId(eventId),
+          ticketCode: secondTicketCode,
+          name: participantData.duo.name,
+          personalEmail: participantData.duo.email,
+          ticketType,
+          duoParticipants: [{
+            participantNumber: 2,
+            fullName: participantData.duo.name,
+            status: "registered"
+          }],
+          checkedIn: false,
+          checkedInAt: null,
+          checkInTime: null,
+          checkInBy: null,
+        });
+
+        logInfo("importService", `Added duo participant: ${participantData.duo.name} (${secondTicketCode})`);
+      }
+
+      return { success: true, ticketId: ticket._id, ticketCode };
+    } catch (error) {
+      logWarn("importService", "Failed to add participant", error);
       throw error;
     }
   },

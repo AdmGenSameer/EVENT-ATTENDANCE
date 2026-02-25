@@ -48,7 +48,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       });
       
       // Start background sync
-      syncService.startBackgroundSync();
+      syncService.startBackgroundSync(eventId: currentEvent?.id ?? "", scannerId: "scanner-device");
     } catch (error) {
       debugPrint("[ScannerScreen] load event failed: $error");
       setState(() {
@@ -87,7 +87,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
       statusColor = Colors.orange;
     });
 
-    final result = await syncService.syncCheckIns();
+    final result = await syncService.syncCheckIns(
+      eventId: currentEvent?.id ?? "",
+      scannerId: "scanner-device",
+    );
     
     if (mounted) {
       setState(() {
@@ -178,7 +181,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       await dbService.addToSyncQueue(ticket.id, "checkin");
 
       setState(() {
-        status = "✓ Checked in: ${ticket.name}";
+        status = "Checked in: ${ticket.name}";
         statusColor = Colors.green;
         isProcessing = false;
       });

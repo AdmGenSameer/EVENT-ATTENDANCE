@@ -1,17 +1,13 @@
-import { EventPayload, EventRecord, SyncJob, TicketRecord } from "./types";
-import { supabase } from "./supabaseClient";
+import { EventPayload, EventRecord, SyncJob, TicketRecord, Seat, LiveRegistrationStatus } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000/api";
 
 const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
     console.info("[api] request", { path, options });
     const response = await fetch(`${API_BASE}${path}`, {
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options?.headers || {}),
       },
       ...options,
@@ -117,4 +113,73 @@ export const generateTickets = async (eventId: string, exp?: number, force?: boo
     console.warn("[api] generateTickets failed", error);
     throw error;
   }
+};
+
+// Live Registration APIs
+export const getLiveStatus = async (eventId: string): Promise<LiveRegistrationStatus> => {
+  try {
+    const data = await request<LiveRegistrationStatus>(`/events/${eventId}/live-status`);
+    return data;
+  } catch (error) {
+    console.warn("[api] getLiveStatus failed", error);
+    throw error;
+  }
+};
+
+export const setLiveStatus = async (eventId: string, isLive: boolean): Promise<LiveRegistrationStatus> => {
+  try {
+    const data = await request<LiveRegistrationStatus>(`/events/${eventId}/live-status`, {
+      method: "POST",
+      body: JSON.stringify({ isLive }),
+    });
+    return data;
+  } catch (error) {
+    console.warn("[api] setLiveStatus failed", error);
+    throw error;
+  }
+};
+
+// Seating APIs
+export const getSeats = async (eventId: string): Promise<Seat[]> => {
+  try {
+    const data = await request<{ seats: Seat[] }>(`/events/${eventId}/seats`);
+    return data.seats;
+  } catch (error) {
+    console.warn("[api] getSeats failed", error);
+    throw error;
+  }
+};
+
+export const blockSeat = async (eventId: string, seatId: string): Promise<Seat> => {
+  try {
+    const data = await request<{ seat: Seat }>(`/events/${eventId}/seats/${seatId}/block`, {
+      method: "POST",
+    });
+    return data.seat;
+  } catch (error) {
+    console.warn("[api] blockSeat failed", error);
+    throw error;
+  }
+};
+
+export const unblockSeat = async (eventId: string, seatId: string): Promise<Seat> => {
+  try {
+    const data = await request<{ seat: Seat }>(`/events/${eventId}/seats/${seatId}/unblock`, {
+      method: "POST",
+    });
+    return data.seat;
+  } catch (error) {
+    console.warn("[api] unblockSeat failed", error);
+    throw error;
+  }
+};
+
+// Generic API helper for Import component
+export const api = {
+  async post<T>(path: string, body: any): Promise<T> {
+    return request<T>(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
 };

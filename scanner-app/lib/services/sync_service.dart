@@ -36,12 +36,12 @@ class SyncService {
   }
 
   /// Start background sync timer
-  void startBackgroundSync() {
+  void startBackgroundSync({required String eventId, required String scannerId}) {
     debugPrint('[SyncService] Starting background sync (interval: ${syncInterval.inMinutes} min)');
     stopBackgroundSync(); // Stop existing timer if any
     
     _syncTimer = Timer.periodic(syncInterval, (_) async {
-      await syncCheckIns();
+      await syncCheckIns(eventId: eventId, scannerId: scannerId);
     });
   }
 
@@ -53,7 +53,7 @@ class SyncService {
   }
 
   /// Sync check-ins from local queue to backend
-  Future<SyncResult> syncCheckIns() async {
+  Future<SyncResult> syncCheckIns({required String eventId, required String scannerId}) async {
     if (_isSyncing) {
       debugPrint('[SyncService] Sync already in progress, skipping');
       return SyncResult(success: false, message: 'Sync in progress');
@@ -79,15 +79,30 @@ class SyncService {
 
       debugPrint('[SyncService] Syncing ${pendingItems.length} items');
 
-      // Convert to API format
-      final items = pendingItems.map((item) => {
-        'ticketId': item.ticketId,
-        'timestamp': item.timestamp,
-      }).toList();
+      // Convert to API format (ticketCode required by backend)
+      final items = <Map<String, dynamic>>[];
+      for (final item in pendingItems) {
+        final ticket = await dbService.getTicket(item.ticketId);
+        if (ticket == null) {
+          continue;
+        }
+        items.add({
+          'ticketCode': ticket.ticketCode,
+          'timestamp': item.timestamp,
+        });
+      }
+
+      if (items.isEmpty) {
+        return SyncResult(success: true, message: 'No valid items to sync', synced: 0);
+      }
 
       // Push to backend
       try {
-        final response = await apiService.pushCheckIns(items);
+        final response = await apiService.pushCheckIns(
+          eventId: eventId,
+          scannerId: scannerId,
+          items: items,
+        );
         final accepted = response['accepted'] as int? ?? 0;
         
         // Mark synced items as completed
@@ -154,7 +169,8 @@ class SyncService {
           id: ticketData['id'],
           eventId: ticketData['eventId'],
           ticketCode: ticketData['ticketCode'],
-          name: ticketData['name'],
+          name: (ticketData['name'] as String?) ?? ticketData['ticketCode'],
+          personalEmail: ticketData['personalEmail'] as String?,
           category: ticketData['ticketType'],
           qrSignature: '', // Not needed for local storage
           checkedIn: ticketData['checkedIn'] ?? false,
@@ -182,6 +198,44 @@ class SyncService {
     }
   }
 
+  Future<SyncTicketsResult> syncTickets(String eventId) async {
+    try {
+      final online = await isOnline();
+      if (!online) {
+        return SyncTicketsResult(success: false, message: 'Device offline', ticketCount: 0);
+      }
+
+      final ticketsData = await apiService.downloadTickets(eventId);
+      int savedCount = 0;
+
+      for (final ticketData in ticketsData) {
+        final ticket = Ticket(
+          id: ticketData['id'],
+          eventId: ticketData['eventId'],
+          ticketCode: ticketData['ticketCode'],
+          name: (ticketData['name'] as String?) ?? ticketData['ticketCode'],
+          personalEmail: ticketData['personalEmail'] as String?,
+          category: ticketData['ticketType'],
+          qrSignature: '',
+          checkedIn: ticketData['checkedIn'] ?? false,
+          checkedInAt: ticketData['checkedInAt'],
+          synced: true,
+        );
+        await dbService.saveTicket(ticket);
+        savedCount++;
+      }
+
+      return SyncTicketsResult(
+        success: true,
+        message: 'Downloaded $savedCount tickets',
+        ticketCount: savedCount,
+      );
+    } catch (e) {
+      debugPrint('[SyncService] sync tickets failed: $e');
+      return SyncTicketsResult(success: false, message: e.toString(), ticketCount: 0);
+    }
+  }
+
   /// Get count of pending sync items
   Future<int> getPendingCount() async {
     try {
@@ -190,6 +244,19 @@ class SyncService {
     } catch (e) {
       debugPrint('[SyncService] Error getting pending count: $e');
       return 0;
+    }
+  }
+
+  Future<void> addToSyncQueue({
+    required String ticketId,
+    required String action,
+    required DateTime timestamp,
+  }) async {
+    try {
+      await dbService.addToSyncQueue(ticketId, action, timestamp: timestamp);
+    } catch (e) {
+      debugPrint('[SyncService] Failed to add to sync queue: $e');
+      rethrow;
     }
   }
 
@@ -212,5 +279,17 @@ class SyncResult {
     required this.success,
     required this.message,
     this.synced = 0,
+  });
+}
+
+class SyncTicketsResult {
+  final bool success;
+  final String message;
+  final int ticketCount;
+
+  SyncTicketsResult({
+    required this.success,
+    required this.message,
+    required this.ticketCount,
   });
 }

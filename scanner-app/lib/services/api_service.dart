@@ -2,13 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // TODO: Update this with your actual backend URL
-  static const String baseUrl = 'http://10.0.2.2:4000/api'; // Android emulator localhost
+  static const String defaultBaseUrl = 'http://10.0.2.2:4000/api'; // Android emulator localhost
   // For real device, use: 'http://YOUR_IP:4000/api'
-  
+
+  final String baseUrl;
   final http.Client client;
 
-  ApiService({http.Client? client}) : client = client ?? http.Client();
+  ApiService({String? baseUrl, http.Client? client})
+      : baseUrl = baseUrl ?? defaultBaseUrl,
+        client = client ?? http.Client();
 
   /// Fetch event details and public key by slug
   Future<Map<String, dynamic>> fetchEventBySlug(String slug) async {
@@ -60,7 +62,11 @@ class ApiService {
   }
 
   /// Push check-in queue to backend
-  Future<Map<String, dynamic>> pushCheckIns(List<Map<String, dynamic>> items) async {
+  Future<Map<String, dynamic>> pushCheckIns({
+    required String eventId,
+    required String scannerId,
+    required List<Map<String, dynamic>> items,
+  }) async {
     try {
       final url = Uri.parse('$baseUrl/sync/checkins');
       debugPrint('[ApiService] Pushing ${items.length} check-ins');
@@ -68,7 +74,11 @@ class ApiService {
       final response = await client.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'items': items}),
+        body: json.encode({
+          'eventId': eventId,
+          'scannerId': scannerId,
+          'items': items,
+        }),
       ).timeout(
         const Duration(seconds: 15),
       );
@@ -93,5 +103,49 @@ class ApiService {
 
   void dispose() {
     client.close();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSeats(String eventId) async {
+    try {
+      final url = Uri.parse('$baseUrl/events/$eventId/seats');
+      debugPrint('[ApiService] Fetching seats for event: $eventId');
+
+      final response = await client.get(url).timeout(
+        const Duration(seconds: 20),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final seats = List<Map<String, dynamic>>.from(data['seats']);
+        debugPrint('[ApiService] Fetched ${seats.length} seats');
+        return seats;
+      } else {
+        throw Exception('Failed to fetch seats: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error fetching seats: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchLiveStatus(String eventId) async {
+    try {
+      final url = Uri.parse('$baseUrl/events/$eventId/live-status');
+      debugPrint('[ApiService] Fetching live status for event: $eventId');
+
+      final response = await client.get(url).timeout(
+        const Duration(seconds: 10),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to fetch live status: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error fetching live status: $e');
+      rethrow;
+    }
   }
 }

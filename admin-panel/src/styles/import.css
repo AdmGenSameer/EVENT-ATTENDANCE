@@ -1,0 +1,411 @@
+.import-container {
+  padding: 24px;
+  background: #f5f5f5;
+}
+
+.import-container h2 {
+  margin: 0 0 24px 0;
+  font-size: 24px;
+  color: #1a1a1a;
+}
+
+/* Sub-tabs */
+.import-subtabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.subtab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.subtab-btn:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.subtab-btn.active {
+  color: #0066cc;
+  border-bottom-color: #0066cc;
+}
+
+/* Alerts */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.alert-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-left: 4px solid #4caf50;
+}
+
+.alert-error {
+  background: #ffebee;
+  color: #c62828;
+  border-left: 4px solid #f44336;
+}
+
+/* Import Section */
+.import-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Forms */
+.participant-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-section-title {
+  margin: 16px 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-input:hover {
+  border-color: #999;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #0066cc;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0052a3;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* File Upload */
+.upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.upload-info {
+  padding: 16px;
+  background: #f0f7ff;
+  border-left: 4px solid #0066cc;
+  border-radius: 6px;
+}
+
+.upload-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0052a3;
+}
+
+.upload-info p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #555;
+}
+
+.upload-info .info-text {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #cce5ff;
+}
+
+.file-upload-label {
+  cursor: pointer;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  border: 2px dashed #0066cc;
+  border-radius: 8px;
+  background: #f0f7ff;
+  transition: all 0.2s;
+}
+
+.file-upload-label:hover .file-upload-box {
+  background: #e8f4ff;
+  border-color: #0052a3;
+}
+
+.file-upload-box svg {
+  color: #0066cc;
+}
+
+.file-upload-box p {
+  margin: 0;
+  font-weight: 500;
+  color: #333;
+}
+
+.file-upload-box .small {
+  font-size: 12px;
+  color: #666;
+  font-weight: normal;
+}
+
+/* Import Results */
+.import-results {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.import-results h3 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.results-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #eee;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-value.success {
+  color: #4caf50;
+}
+
+.stat-value.warning {
+  color: #ff9800;
+}
+
+/* Errors */
+.errors-section {
+  margin-top: 16px;
+}
+
+.errors-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c62828;
+}
+
+.error-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error-list li {
+  padding: 8px 12px;
+  background: #ffebee;
+  border-left: 3px solid #f44336;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #c62828;
+  font-family: "Courier New", monospace;
+}
+
+.error-list .more-errors {
+  color: #999;
+  background: #f5f5f5;
+  border-left-color: #999;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .results-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .file-upload-box {
+    padding: 30px;
+  }
+}
+/* Google Sheets Sync */
+.sheets-container {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+}
+
+.sheets-info {
+  margin-bottom: 24px;
+}
+
+.sheets-info h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.sheets-info p {
+  margin: 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.sheets-info .info-text {
+  background: #f0f9ff;
+  padding: 10px 12px;
+  border-left: 3px solid #0066cc;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.sheets-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sheets-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheets-form label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.sheets-form .form-input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  transition: all 0.2s ease;
+}
+
+.sheets-form .form-input:hover {
+  border-color: #0066cc;
+}
+
+.sheets-form .form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.sheets-form .form-input:disabled {
+  background-color: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}

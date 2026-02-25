@@ -27,3 +27,9 @@ export const logWarn = (context: LogContext, message: string, error?: unknown) =
   const suffix = detail ? ` | ${detail}` : "";
   console.warn(`[WARN] ${context} - ${message}${suffix}`);
 };
+
+export const logError = (context: LogContext, message: string, error?: unknown) => {
+  const detail = error instanceof Error ? error.message : formatPayload(error as LogPayload);
+  const suffix = detail ? ` | ${detail}` : "";
+  console.error(`[ERROR] ${context} - ${message}${suffix}`);
+};

@@ -11,14 +11,13 @@ scannerRouter.get("/sync/events/:slug/public-key", async (req, res) => {
   try {
     const slug = req.params.slug;
     logInfo("scanner:publicKey", `Fetching public key for slug ${slug}`);
-    const events = await eventService.listEvents();
-    const event = events.find((e: { slug: string; }) => e.slug === slug);
+    const event = await eventService.getEventBySlug(slug);
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
     res.json({
-      eventId: event.id,
-      publicKey: event.publicKey,
+      eventId: event._id,
+      publicKey: event.qrPublicKey,
       name: event.name,
       slug: event.slug,
     });
@@ -33,15 +32,14 @@ scannerRouter.get("/sync/events/:id/tickets", async (req, res) => {
     const eventId = req.params.id;
     logInfo("scanner:tickets", `Syncing tickets for ${eventId}`);
     const tickets = await ticketService.listTickets(eventId);
-    const sanitized = tickets.map((ticket: { id: any; eventId: any; ticketCode: any; name: any; ticketType: any; qrData: any; checkedIn: any; checkedInAt: any; }) => ({
-      id: ticket.id,
+    const sanitized = tickets.map((ticket: any) => ({
+      id: ticket._id,
       eventId: ticket.eventId,
       ticketCode: ticket.ticketCode,
-      name: ticket.name,
       ticketType: ticket.ticketType,
-      qrData: ticket.qrData,
       checkedIn: ticket.checkedIn,
-      checkedInAt: ticket.checkedInAt,
+      checkInTime: ticket.checkInTime || ticket.checkedInAt,
+      checkedInAt: ticket.checkedInAt || ticket.checkInTime,
     }));
     res.json({ tickets: sanitized });
   } catch (error) {
@@ -51,12 +49,13 @@ scannerRouter.get("/sync/events/:id/tickets", async (req, res) => {
 });
 
 const checkInSchema = z.object({
-  ticketId: z.string(),
+  ticketCode: z.string(),
   timestamp: z.string(),
 });
 
 scannerRouter.post("/sync/checkins", async (req, res) => {
   try {
+    const eventId = req.body.eventId;
     const items = z.array(checkInSchema).parse(req.body.items || []);
     logInfo("scanner:checkins", `Processing ${items.length} check-ins`);
     
@@ -71,7 +70,8 @@ scannerRouter.post("/sync/checkins", async (req, res) => {
     for (const item of items) {
       try {
         const result = await ticketService.checkInTicket(
-          item.ticketId,
+          item.ticketCode,
+          eventId,
           item.timestamp,
           req.body.scannerId || "scanner-device"
         );
@@ -82,7 +82,7 @@ scannerRouter.post("/sync/checkins", async (req, res) => {
         }
         
         results.details.push({
-          ticketId: item.ticketId,
+          ticketCode: item.ticketCode,
           status: "success",
           conflict: result.conflict,
           resolution: result.resolution,
@@ -90,11 +90,11 @@ scannerRouter.post("/sync/checkins", async (req, res) => {
       } catch (error: any) {
         results.errors++;
         results.details.push({
-          ticketId: item.ticketId,
+          ticketCode: item.ticketCode,
           status: "error",
           error: error.message,
         });
-        logWarn("scanner:checkins", `Failed to process ${item.ticketId}`, error);
+        logWarn("scanner:checkins", `Failed to process ${item.ticketCode}`, error);
       }
     }
 

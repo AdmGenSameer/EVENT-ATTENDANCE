@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma";
+import { Event } from "../db/models/Event";
 import { logInfo, logWarn } from "../utils/logger";
 import { generateTicketCode } from "../utils/ticketCode";
 import crypto from "crypto";
@@ -15,7 +15,7 @@ export const eventService = {
   async listEvents() {
     try {
       logInfo("eventService:list", "Listing events");
-      return await prisma.event.findMany({ orderBy: { createdAt: "desc" } });
+      return await Event.find().sort({ createdAt: -1 });
     } catch (error) {
       logWarn("eventService:list", "Failed to list events", error);
       throw error;
@@ -25,9 +25,19 @@ export const eventService = {
   async getEvent(eventId: string) {
     try {
       logInfo("eventService:get", `Loading event ${eventId}`);
-      return await prisma.event.findUnique({ where: { id: eventId } });
+      return await Event.findById(eventId);
     } catch (error) {
       logWarn("eventService:get", "Failed to load event", error);
+      throw error;
+    }
+  },
+
+  async getEventBySlug(slug: string) {
+    try {
+      logInfo("eventService:getBySlug", `Loading event ${slug}`);
+      return await Event.findOne({ slug });
+    } catch (error) {
+      logWarn("eventService:getBySlug", "Failed to load event", error);
       throw error;
     }
   },
@@ -36,22 +46,21 @@ export const eventService = {
     name: string;
     slug: string;
     date: string;
-    venue?: string;
+    location?: string;
     sheetId?: string;
   }) {
     try {
       logInfo("eventService:create", `Creating event ${payload.slug}`);
       const keys = createKeyPair();
-      return await prisma.event.create({
-        data: {
-          name: payload.name,
-          slug: payload.slug,
-          date: new Date(payload.date),
-          venue: payload.venue,
-          sheetId: payload.sheetId,
-          publicKey: keys.publicKey,
-          privateKey: keys.privateKey,
-        },
+      return await Event.create({
+        name: payload.name,
+        slug: payload.slug,
+        date: new Date(payload.date),
+        location: payload.location || "",
+        sheetId: payload.sheetId || "",
+        qrPublicKey: keys.publicKey,
+        description: "",
+        status: "DRAFT",
       });
     } catch (error) {
       logWarn("eventService:create", "Failed to create event", error);
@@ -59,23 +68,24 @@ export const eventService = {
     }
   },
 
-  async updateEvent(eventId: string, payload: Partial<{ name: string; slug: string; date: string; venue?: string; sheetId?: string }>) {
+  async updateEvent(eventId: string, payload: Partial<{ name: string; slug: string; date: string; location?: string; sheetId?: string }>) {
     try {
       logInfo("eventService:update", `Updating event ${eventId}`);
-      const event = await prisma.event.findUnique({ where: { id: eventId } });
+      const event = await Event.findById(eventId);
       if (!event) {
         return null;
       }
-      return await prisma.event.update({
-        where: { id: eventId },
-        data: {
+      return await Event.findByIdAndUpdate(
+        eventId,
+        {
           name: payload.name ?? event.name,
           slug: payload.slug ?? event.slug,
           date: payload.date ? new Date(payload.date) : event.date,
-          venue: payload.venue ?? event.venue,
+          location: payload.location ?? event.location,
           sheetId: payload.sheetId ?? event.sheetId,
         },
-      });
+        { new: true }
+      );
     } catch (error) {
       logWarn("eventService:update", "Failed to update event", error);
       throw error;

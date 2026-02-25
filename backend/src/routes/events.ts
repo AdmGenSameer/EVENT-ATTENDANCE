@@ -5,9 +5,38 @@ import { importService } from "../services/importService";
 import { googleSheetsService } from "../services/googleSheetsService";
 import { syncHistoryService } from "../services/syncHistoryService";
 import { qrService } from "../services/qrService";
-import { logInfo, logWarn } from "../utils/logger";
+import { seatService } from "../services/seatService";
+import { liveRegistrationService } from "../services/liveRegistrationService";
+import { logInfo, logWarn, logError } from "../utils/logger";
 
 export const eventsRouter = Router();
+
+const mapSeat = (seat: {
+  id: string;
+  eventId: string;
+  section: string;
+  row: string;
+  number: number;
+  seatCode: string;
+  status: string;
+  ticketId?: string | null;
+  participantName?: string | null;
+}) => {
+  const section = seat.section.toLowerCase();
+  const status = seat.status.toLowerCase();
+
+  return {
+    id: seat.id,
+    eventId: seat.eventId,
+    section,
+    row: seat.row,
+    number: seat.number,
+    seatCode: seat.seatCode,
+    status,
+    ticketId: seat.ticketId ?? null,
+    participantName: seat.participantName ?? null,
+  };
+};
 
 const createEventSchema = z.object({
   name: z.string().min(2),
@@ -54,8 +83,8 @@ eventsRouter.get("/events/:id/public-key", async (req, res) => {
       return res.status(404).json({ error: "Event not found" });
     }
     res.json({
-      eventId: event.id,
-      publicKey: event.publicKey,
+      eventId: event._id,
+      publicKey: event.qrPublicKey,
       name: event.name,
       slug: event.slug,
     });
@@ -201,5 +230,105 @@ eventsRouter.get("/events/:id/sync-history", async (req, res) => {
   } catch (error) {
     logWarn("events:syncHistory", "Failed to list sync history", error);
     res.status(500).json({ error: "Failed to list sync history" });
+  }
+});
+
+// Live Registration Status Routes
+eventsRouter.get("/events/:id/live-status", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    logInfo("events:liveStatus:get", `Fetching live status for ${eventId}`);
+    
+    const status = await liveRegistrationService.getLiveStatus(eventId);
+    res.json({
+      isLive: status.isLive,
+      updatedAt: status.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    logError("events:liveStatus:get", "Failed to fetch live status", error);
+    res.status(500).json({ error: "Failed to fetch live status" });
+  }
+});
+
+const setLiveStatusSchema = z.object({
+  isLive: z.boolean(),
+});
+
+eventsRouter.post("/events/:id/live-status", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const payload = setLiveStatusSchema.parse(req.body);
+    logInfo("events:liveStatus:set", `Setting live status to ${payload.isLive} for ${eventId}`);
+    
+    const status = await liveRegistrationService.setLiveStatus(eventId, payload.isLive);
+    res.json({
+      isLive: status.isLive,
+      updatedAt: status.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    logError("events:liveStatus:set", "Failed to set live status", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.flatten() });
+    }
+    res.status(500).json({ error: "Failed to set live status" });
+  }
+});
+
+// Seating Routes
+eventsRouter.get("/events/:id/seats", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    logInfo("events:seats:list", `Fetching seats for ${eventId}`);
+    
+    const seats = await seatService.getSeatsForEvent(eventId);
+    res.json({ seats: seats.map(mapSeat) });
+  } catch (error) {
+    logError("events:seats:list", "Failed to fetch seats", error);
+    res.status(500).json({ error: "Failed to fetch seats" });
+  }
+});
+
+eventsRouter.post("/events/:id/seats/:seatId/block", async (req, res) => {
+  try {
+    const { seatId } = req.params;
+    logInfo("events:seats:block", `Blocking seat ${seatId}`);
+    
+    const seat = await seatService.blockSeat(seatId);
+    res.json({ seat: mapSeat(seat) });
+  } catch (error) {
+    logError("events:seats:block", "Failed to block seat", error);
+    if (error instanceof Error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: "Failed to block seat" });
+  }
+});
+
+eventsRouter.post("/events/:id/seats/:seatId/unblock", async (req, res) => {
+  try {
+    const { seatId } = req.params;
+    logInfo("events:seats:unblock", `Unblocking seat ${seatId}`);
+    
+    const seat = await seatService.unblockSeat(seatId);
+    res.json({ seat: mapSeat(seat) });
+  } catch (error) {
+    logError("events:seats:unblock", "Failed to unblock seat", error);
+    if (error instanceof Error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.status(500).json({ error: "Failed to unblock seat" });
+  }
+});
+
+eventsRouter.get("/events/:id/seats/statistics", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    logInfo("events:seats:stats", `Fetching seat statistics for ${eventId}`);
+    
+    const stats = await seatService.getSeatStatistics(eventId);
+    res.json({ statistics: stats });
+  } catch (error) {
+    logError("events:seats:stats", "Failed to fetch seat statistics", error);
+    res.status(500).json({ error: "Failed to fetch seat statistics" });
   }
 });
