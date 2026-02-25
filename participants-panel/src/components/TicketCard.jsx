@@ -11,7 +11,7 @@ const TicketCard = ({ regNo, onClose }) => {
   const fetchTicketDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/events/tickets/${regNo}`
+        `https://${process.env.URL}/api/events/tickets/${regNo}`
       );
 
       if (!response.ok) {
