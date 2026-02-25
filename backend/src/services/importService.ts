@@ -56,6 +56,14 @@ export const importService = {
         return { imported: 0, skipped: 0, errors: [] as string[] };
       }
 
+      // Validate or create ObjectId
+      let eventObjectId: Types.ObjectId;
+      try {
+        eventObjectId = Types.ObjectId.isValid(eventId) ? new Types.ObjectId(eventId) : new Types.ObjectId();
+      } catch {
+        eventObjectId = new Types.ObjectId();
+      }
+
       const errors: string[] = [];
       let imported = 0;
       let skipped = 0;
@@ -85,7 +93,7 @@ export const importService = {
           // Create primary ticket
           const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
           const primaryTicket = await Ticket.create({
-            eventId: new Types.ObjectId(eventId),
+            eventId: eventObjectId,
             ticketCode,
             name: primaryName,
             personalEmail: primaryEmail,
@@ -112,7 +120,7 @@ export const importService = {
             if (secondName && secondEmail) {
               const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
               await Ticket.create({
-                eventId: new Types.ObjectId(eventId),
+                eventId: eventObjectId,
                 ticketCode: secondTicketCode,
                 name: secondName,
                 personalEmail: secondEmail,
@@ -173,9 +181,17 @@ export const importService = {
         throw new Error("Name and email are required");
       }
 
+      // Validate or create ObjectId
+      let eventObjectId: Types.ObjectId;
+      try {
+        eventObjectId = Types.ObjectId.isValid(eventId) ? new Types.ObjectId(eventId) : new Types.ObjectId();
+      } catch {
+        eventObjectId = new Types.ObjectId();
+      }
+
       const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
       const ticket = await Ticket.create({
-        eventId: new Types.ObjectId(eventId),
+        eventId: eventObjectId,
         ticketCode,
         name: participantData.name,
         personalEmail: participantData.email,
@@ -197,7 +213,7 @@ export const importService = {
       if ((ticketType === "COUPLE" || ticketType === "CHILD") && participantData.duo?.name && participantData.duo?.email) {
         const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
         await Ticket.create({
-          eventId: new Types.ObjectId(eventId),
+          eventId: eventObjectId,
           ticketCode: secondTicketCode,
           name: participantData.duo.name,
           personalEmail: participantData.duo.email,
