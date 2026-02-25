@@ -80,6 +80,6 @@ const EventSchema = new mongoose_1.Schema({
 }, {
     timestamps: true,
 });
-EventSchema.index({ slug: 1 });
+// slug index is already created by unique: true
 EventSchema.index({ status: 1 });
 exports.Event = mongoose_1.default.model('Event', EventSchema);

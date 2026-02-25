@@ -54,7 +54,7 @@ const SyncJobSchema = new mongoose_1.Schema({
     imported: Number,
     skipped: Number,
     errorCount: Number,
-    errors: [String],
+    syncErrors: [String],
     rowCount: Number,
     totalRows: Number,
     truncated: Boolean,
@@ -65,6 +65,7 @@ const SyncJobSchema = new mongoose_1.Schema({
     finishedAt: Date,
 }, {
     timestamps: true,
+    suppressReservedKeysWarning: true,
 });
 SyncJobSchema.index({ eventId: 1, startedAt: -1 });
 exports.SyncJob = mongoose_1.default.model('SyncJob', SyncJobSchema);

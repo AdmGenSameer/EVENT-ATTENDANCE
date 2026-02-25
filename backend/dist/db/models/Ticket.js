@@ -62,9 +62,17 @@ const TicketSchema = new mongoose_1.Schema({
         lowercase: true,
         trim: true,
     },
+    registrationNo: {
+        type: String,
+        default: null,
+    },
+    contactNo: {
+        type: String,
+        default: null,
+    },
     ticketType: {
         type: String,
-        enum: ['GUEST', 'COUPLE', 'STUDENT', 'CHILD'],
+        enum: ['REGULAR', 'REGULAR DUO', 'FRONT ROW SOLO', 'FRONT ROW DUO'],
         required: true,
     },
     checkedIn: {
@@ -86,13 +94,17 @@ const TicketSchema = new mongoose_1.Schema({
     seatNumber: {
         type: String,
         default: null,
-        index: true,
+    },
+    qrData: {
+        type: String,
+        default: null,
     },
     duoParticipants: [DuoParticipantSchema],
 }, {
     timestamps: true,
 });
 TicketSchema.index({ eventId: 1, ticketCode: 1 });
-TicketSchema.index({ ticketCode: 1 });
+// ticketCode index is already created by unique: true and index: true
 TicketSchema.index({ eventId: 1, checkedIn: 1 });
+TicketSchema.index({ seatNumber: 1 });
 exports.Ticket = mongoose_1.default.model('Ticket', TicketSchema);

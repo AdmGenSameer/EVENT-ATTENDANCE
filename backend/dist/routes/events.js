@@ -17,14 +17,14 @@ const mapSeat = (seat) => {
     const section = seat.section.toLowerCase();
     const status = seat.status.toLowerCase();
     return {
-        id: seat.id,
-        eventId: seat.eventId,
+        id: seat._id.toString(),
+        eventId: seat.eventId.toString(),
         section,
         row: seat.row,
         number: seat.number,
         seatCode: seat.seatCode,
         status,
-        ticketId: seat.ticketId ?? null,
+        ticketId: seat.ticketId?.toString() ?? null,
         participantName: seat.participantName ?? null,
     };
 };
@@ -176,7 +176,7 @@ exports.eventsRouter.post("/events/:id/sync-google-sheet", async (req, res) => {
             sheetId,
         });
         const sheetResult = await googleSheetsService_1.googleSheetsService.fetchSheetRows(sheetId, body.range);
-        const result = await importService_1.importService.importTicketsFromRows(eventId, sheetResult.rows, "sheets");
+        const result = await importService_1.importService.importTicketsFromRegistrationSheet(eventId, sheetResult.rows);
         await syncHistoryService_1.syncHistoryService.completeJob(job.id, {
             status: "completed",
             imported: result.imported,
@@ -219,7 +219,7 @@ exports.eventsRouter.post("/events/:id/generate-tickets", async (req, res) => {
         const eventId = req.params.id;
         const payload = generateTicketsSchema.parse(req.body || {});
         (0, logger_1.logInfo)("events:generateTickets", `Generating tickets for ${eventId}`);
-        const result = await qrService_1.qrService.generateTicketsForEvent(eventId, payload.exp, payload.force ?? false);
+        const result = await qrService_1.qrService.generateTicketsForEvent(eventId);
         res.status(201).json({ result });
     }
     catch (error) {

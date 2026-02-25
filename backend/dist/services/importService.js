@@ -9,18 +9,15 @@ const csv_1 = require("../utils/csv");
 const logger_1 = require("../utils/logger");
 const crypto_1 = __importDefault(require("crypto"));
 const mongoose_1 = require("mongoose");
-// Map user-friendly ticket types to internal types
-const TICKET_TYPE_MAP = {
-    "REGULAR": "GUEST",
-    "REGULAR DUO": "COUPLE",
-    "FRONT ROW SOLO": "STUDENT",
-    "FRONT ROW DUO": "CHILD",
-};
 const getTicketType = (raw) => {
     if (!raw)
         return null;
-    const normalized = raw.trim().toUpperCase().replace(/\s+/g, " ");
-    return TICKET_TYPE_MAP[normalized] || null;
+    // Remove price suffix (e.g., "REGULAR - ₹499" -> "REGULAR")
+    const withoutPrice = raw.split(" - ")[0].trim();
+    const normalized = withoutPrice.toUpperCase().replace(/\s+/g, " ");
+    // Validate against allowed types
+    const validTypes = ['REGULAR', 'REGULAR DUO', 'FRONT ROW SOLO', 'FRONT ROW DUO'];
+    return validTypes.includes(normalized) ? normalized : null;
 };
 const parseTimestamp = (raw) => {
     const trimmed = raw?.trim();
@@ -56,6 +53,14 @@ exports.importService = {
             if (!rows.length) {
                 return { imported: 0, skipped: 0, errors: [] };
             }
+            // Validate or create ObjectId
+            let eventObjectId;
+            try {
+                eventObjectId = mongoose_1.Types.ObjectId.isValid(eventId) ? new mongoose_1.Types.ObjectId(eventId) : new mongoose_1.Types.ObjectId();
+            }
+            catch {
+                eventObjectId = new mongoose_1.Types.ObjectId();
+            }
             const errors = [];
             let imported = 0;
             let skipped = 0;
@@ -81,10 +86,12 @@ exports.importService = {
                     // Create primary ticket
                     const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
                     const primaryTicket = await Ticket_1.Ticket.create({
-                        eventId: new mongoose_1.Types.ObjectId(eventId),
+                        eventId: eventObjectId,
                         ticketCode,
                         name: primaryName,
                         personalEmail: primaryEmail,
+                        registrationNo: registrationNo || null,
+                        contactNo: contactNo || null,
                         ticketType,
                         duoParticipants: [{
                                 participantNumber: 1,
@@ -99,17 +106,20 @@ exports.importService = {
                     imported += 1;
                     (0, logger_1.logInfo)("importService", `Created ticket for ${primaryName} (${ticketCode})`);
                     // Handle duo participants (REGULAR DUO, FRONT ROW DUO)
-                    if (ticketType === "COUPLE" || ticketType === "CHILD") {
+                    if (ticketType === "REGULAR DUO" || ticketType === "FRONT ROW DUO") {
                         const secondName = (row["NAME:"] || "").trim(); // Second NAME field
                         const secondEmail = (row["COLLEGE EMAIL ID:"] || "").trim(); // Second COLLEGE EMAIL ID field
                         const secondRegistration = (row["REGISTRATION NO.:"] || "").trim(); // Second REGISTRATION NO. field
                         if (secondName && secondEmail) {
                             const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
+                            const secondContact = (row["CONTACT NO.:"]) || "";
                             await Ticket_1.Ticket.create({
-                                eventId: new mongoose_1.Types.ObjectId(eventId),
+                                eventId: eventObjectId,
                                 ticketCode: secondTicketCode,
                                 name: secondName,
                                 personalEmail: secondEmail,
+                                registrationNo: secondRegistration || null,
+                                contactNo: secondContact || null,
                                 ticketType,
                                 duoParticipants: [{
                                         participantNumber: 2,
@@ -154,12 +164,22 @@ exports.importService = {
             if (!participantData.name || !participantData.email) {
                 throw new Error("Name and email are required");
             }
+            // Validate or create ObjectId
+            let eventObjectId;
+            try {
+                eventObjectId = mongoose_1.Types.ObjectId.isValid(eventId) ? new mongoose_1.Types.ObjectId(eventId) : new mongoose_1.Types.ObjectId();
+            }
+            catch {
+                eventObjectId = new mongoose_1.Types.ObjectId();
+            }
             const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
             const ticket = await Ticket_1.Ticket.create({
-                eventId: new mongoose_1.Types.ObjectId(eventId),
+                eventId: eventObjectId,
                 ticketCode,
                 name: participantData.name,
                 personalEmail: participantData.email,
+                registrationNo: participantData.registrationNo || null,
+                contactNo: participantData.contactNo || null,
                 ticketType,
                 duoParticipants: [{
                         participantNumber: 1,
@@ -173,13 +193,15 @@ exports.importService = {
             });
             (0, logger_1.logInfo)("importService", `Added participant: ${participantData.name} (${ticketCode})`);
             // Handle duo participant
-            if ((ticketType === "COUPLE" || ticketType === "CHILD") && participantData.duo?.name && participantData.duo?.email) {
+            if ((ticketType === "REGULAR DUO" || ticketType === "FRONT ROW DUO") && participantData.duo?.name && participantData.duo?.email) {
                 const secondTicketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());
                 await Ticket_1.Ticket.create({
-                    eventId: new mongoose_1.Types.ObjectId(eventId),
+                    eventId: eventObjectId,
                     ticketCode: secondTicketCode,
                     name: participantData.duo.name,
                     personalEmail: participantData.duo.email,
+                    registrationNo: participantData.duo.registrationNo || null,
+                    contactNo: participantData.duo.contactNo || null,
                     ticketType,
                     duoParticipants: [{
                             participantNumber: 2,

@@ -5,13 +5,72 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ticketsRouter = void 0;
 const express_1 = require("express");
+const ticketService_1 = require("../services/ticketService");
 const importService_1 = require("../services/importService");
 const qrService_1 = require("../services/qrService");
 const googleSheetsService_1 = require("../services/googleSheetsService");
 const logger_1 = require("../utils/logger");
 const multer_1 = __importDefault(require("multer"));
+const Ticket_1 = require("../db/models/Ticket");
+const ParticipantsModel_1 = require("../db/models/ParticipantsModel");
 exports.ticketsRouter = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
+exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
+    try {
+        const { regNo } = req.params;
+        const participant = await ParticipantsModel_1.Participants.findOne({
+            registrationNumber: regNo,
+        }).lean();
+        if (!participant) {
+            return res.status(404).json({
+                success: false,
+                error: "Participant not found",
+            });
+        }
+        res.status(200).json({
+            success: true,
+            participant: {
+                name: participant.name,
+                email: participant.email,
+                registrationNumber: participant.registrationNumber,
+                checkedIn: participant.checkedIn,
+            },
+            qrCode: participant.qrData || null,
+        });
+    }
+    catch (error) {
+        console.error("Error fetching participant:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch participant",
+        });
+    }
+});
+exports.ticketsRouter.get("/events/:id/tickets", async (req, res) => {
+    try {
+        const eventId = req.params.id;
+        (0, logger_1.logInfo)("tickets:list", `Fetching tickets for ${eventId}`);
+        const tickets = await ticketService_1.ticketService.listTickets(eventId);
+        const normalized = tickets.map((ticket) => ({
+            id: ticket._id,
+            eventId: ticket.eventId,
+            ticketCode: ticket.ticketCode,
+            name: ticket.name,
+            personalEmail: ticket.personalEmail,
+            ticketType: ticket.ticketType,
+            checkedIn: ticket.checkedIn,
+            checkedInAt: ticket.checkedInAt || ticket.checkInTime || null,
+            createdAt: ticket.createdAt,
+            qrData: ticket.qrData || null,
+            seatNumber: ticket.seatNumber || null,
+        }));
+        res.json({ tickets: normalized });
+    }
+    catch (error) {
+        (0, logger_1.logWarn)("tickets:list", "Failed to list tickets", error);
+        res.status(500).json({ error: "Failed to list tickets" });
+    }
+});
 /**
  * POST /api/tickets/import
  * Upload CSV/Excel file with participant data
@@ -189,20 +248,48 @@ exports.ticketsRouter.post("/sync-google-sheets", async (req, res) => {
         if (!sheetsData.rows || sheetsData.rows.length === 0) {
             return res.status(400).json({ error: "No data found in Google Sheet" });
         }
+        // Log available columns for debugging
+        if (sheetsData.rows.length > 0) {
+            const sampleRow = sheetsData.rows[0];
+            const columns = Object.keys(sampleRow);
+            (0, logger_1.logInfo)("tickets:sync-sheets", `Found ${columns.length} columns: ${columns.join(", ")}`);
+            // Log first row data for debugging
+            (0, logger_1.logInfo)("tickets:sync-sheets", `First row data: ${JSON.stringify(sampleRow).substring(0, 200)}`);
+        }
         // Convert Google Sheets rows to CSV format and import
         // Map sheet columns to expected import format
         const importedRows = [];
         const skippedRows = [];
         const errorsList = [];
+        // Helper function to find column value with flexible matching
+        const findColumnValue = (row, possibleNames) => {
+            for (const name of possibleNames) {
+                if (row[name])
+                    return row[name];
+            }
+            // Try case-insensitive match
+            const keys = Object.keys(row);
+            for (const name of possibleNames) {
+                const match = keys.find(k => k.toLowerCase() === name.toLowerCase());
+                if (match && row[match])
+                    return row[match];
+            }
+            return "";
+        };
         for (let i = 0; i < sheetsData.rows.length; i++) {
             const row = sheetsData.rows[i];
             try {
-                // Extract fields from Google Sheets row
-                const name = row["NAME"] || row["name"] || "";
-                const registrationNo = row["Registration No."] || row["registration no."] || row["REGISTRATION NO."] || "";
-                const email = row["College Email Id"] || row["college email id"] || row["EMAIL"] || "";
-                const contactNo = row["Contact No."] || row["contact no."] || row["CONTACT NO."] || "";
-                const ticketType = row["TICKET TYPE"] || row["ticket type"] || "";
+                // Extract fields from Google Sheets row with flexible column matching
+                const name = findColumnValue(row, ["NAME", "name", "Name", "Full Name", "FULL NAME"]);
+                const registrationNo = findColumnValue(row, ["Registration No.", "REGISTRATION NO.", "registration no.", "Reg No", "REG NO"]);
+                const email = findColumnValue(row, ["College Email Id", "COLLEGE EMAIL ID", "college email id", "Email", "EMAIL", "email", "Email Address"]);
+                const contactNo = findColumnValue(row, ["Contact No.", "CONTACT NO.", "contact no.", "Phone", "PHONE", "Mobile", "MOBILE"]);
+                const ticketType = findColumnValue(row, ["TICKET TYPE:", "TICKET TYPE", "ticket type:", "ticket type", "Ticket Type", "Type", "TYPE"]);
+                // Debug log for first few rows
+                if (i < 3) {
+                    (0, logger_1.logInfo)("tickets:sync-sheets", `Row ${i + 1} - name: "${name}", email: "${email}", ticketType: "${ticketType}"`);
+                    (0, logger_1.logInfo)("tickets:sync-sheets", `Row ${i + 1} - Available keys: ${Object.keys(row).join(", ")}`);
+                }
                 if (!name || !email || !ticketType) {
                     skippedRows.push(i + 1);
                     errorsList.push(`Row ${i + 1}: Missing required fields (NAME, EMAIL, TICKET TYPE)`);
@@ -219,10 +306,10 @@ exports.ticketsRouter.post("/sync-google-sheets", async (req, res) => {
                     ...(ticketType.toLowerCase().includes("duo")
                         ? {
                             duo: {
-                                name: row["NAME:"] || row["name:"] || "",
-                                email: row["COLLEGE EMAIL ID:"] || row["email:"] || "",
-                                registrationNo: row["REGISTRATION NO.:"] || row["registration no.:"] || "",
-                                contactNo: row["CONTACT NO.:"] || row["contact no.:"] || "",
+                                name: findColumnValue(row, ["NAME:", "name:", "Name:", "NAME (2nd participant)"]),
+                                email: findColumnValue(row, ["COLLEGE EMAIL ID:", "email:", "Email:", "EMAIL (2nd participant)"]),
+                                registrationNo: findColumnValue(row, ["REGISTRATION NO.:", "REGISTRATION NO:", "registration no.:", "Reg No (2nd)"]),
+                                contactNo: findColumnValue(row, ["CONTACT NO.:", "CONTACT NO:", "contact no.:", "Phone (2nd)"]),
                             },
                         }
                         : {}),
@@ -247,6 +334,30 @@ exports.ticketsRouter.post("/sync-google-sheets", async (req, res) => {
         (0, logger_1.logWarn)("tickets:sync-sheets", "Google Sheets sync failed", error);
         res.status(500).json({
             error: "Google Sheets sync failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+        });
+    }
+});
+/**
+ * DELETE /api/tickets/events/:eventId/clear
+ * Clear all tickets for an event
+ */
+exports.ticketsRouter.delete("/events/:eventId/clear", async (req, res) => {
+    try {
+        const { eventId } = req.params;
+        (0, logger_1.logInfo)("tickets:clear", `Clearing all tickets for event ${eventId}`);
+        const result = await Ticket_1.Ticket.deleteMany({ eventId });
+        (0, logger_1.logInfo)("tickets:clear", `Deleted ${result.deletedCount} tickets`);
+        res.json({
+            success: true,
+            deletedCount: result.deletedCount,
+            message: `Successfully deleted ${result.deletedCount} tickets`,
+        });
+    }
+    catch (error) {
+        (0, logger_1.logWarn)("tickets:clear", "Failed to clear tickets", error);
+        res.status(500).json({
+            error: "Failed to clear tickets",
             message: error instanceof Error ? error.message : "Unknown error",
         });
     }
