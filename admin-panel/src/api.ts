@@ -182,4 +182,9 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+  async delete<T>(path: string): Promise<T> {
+    return request<T>(path, {
+      method: "DELETE",
+    });
+  },
 };

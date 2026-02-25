@@ -209,12 +209,12 @@ export const Import = () => {
     setMessage(null);
 
     try {
-      const response = await api.delete(`/tickets/events/${eventId}/clear`);
+      const response = await api.delete<{ success: boolean; deletedCount: number }>(`/tickets/events/${eventId}/clear`);
 
-      if (response.data.success) {
+      if (response.success) {
         setMessage({
           type: "success",
-          text: `✓ Database cleared: ${response.data.deletedCount} tickets deleted`,
+          text: `✓ Database cleared: ${response.deletedCount} tickets deleted`,
         });
       } else {
         setMessage({
