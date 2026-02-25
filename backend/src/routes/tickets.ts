@@ -6,10 +6,35 @@ import { googleSheetsService } from "../services/googleSheetsService";
 import { logInfo, logWarn } from "../utils/logger";
 import multer from "multer";
 import { parseCsv } from "../utils/csv";
+import ParticipantsModel from "../models/ParticipantsModel";
 
 export const ticketsRouter = Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+ticketsRouter.get('/events/tickets/:regNo', async (req,res)=>{
+   try {
+     const {regNo} = req.params;
+      const participant = await ParticipantsModel.findOne({registrationNumber: regNo});
+      if(participant){
+        res.status(200).json({
+          success: true,
+          participant: {
+            name: participant.name,
+            email: participant.email,
+            checkedIn: participant.checkedIn,
+            registrationNumber: participant.registrationNumber,
+          }
+        })
+      } else {
+        res.status(404).json({error: "Participant not found"})
+      }
+   } catch (error) {
+    console.log("Error fetching participant by registration number:", error);
+    res.status(500).json({error: "Failed to fetch participant"})
+
+   }
+})
 
 ticketsRouter.get("/events/:id/tickets", async (req, res) => {
   try {
