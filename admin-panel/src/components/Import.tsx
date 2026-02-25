@@ -104,7 +104,7 @@ export const Import = () => {
       formDataObj.append("file", file);
       formDataObj.append("eventId", eventId);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE || "http://localhost:4000/api"}/tickets/import`, {
+      const response = await fetch(`${(import.meta as any).env.VITE_API_BASE || "http://localhost:4000/api"}/tickets/import`, {
         method: "POST",
         body: formDataObj,
       });

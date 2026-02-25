@@ -4,7 +4,6 @@ import { Event } from "../db/models/Event";
 import { Ticket } from "../db/models/Ticket";
 import { logInfo, logWarn } from "../utils/logger";
 import { Types } from "mongoose";
-import { Types } from "mongoose";
 
 /**
  * QR Payload Structure (Secure Ed25519 signed)
@@ -105,7 +104,7 @@ export const qrService = {
         throw new Error("Ticket not found");
       }
 
-      const event = await Event.findById(ticket.eventId);
+      const event = await Event.findById(ticket.eventId).select('+qrPrivateKey');
       if (!event) {
         throw new Error("Event not found");
       }
@@ -153,7 +152,7 @@ export const qrService = {
     try {
       logInfo("qrService:generateBulk", `Generating QRs in bulk for event ${eventId}`);
 
-      const event = await Event.findById(eventId);
+      const event = await Event.findById(eventId).select('+qrPrivateKey');
       if (!event) {
         throw new Error("Event not found");
       }

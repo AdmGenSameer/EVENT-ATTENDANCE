@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import '../styles/qr-generator.css';
@@ -23,7 +24,7 @@ interface QRCodeGeneratorProps {
   eventId: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:4000/api';
 
 export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   const [activeTab, setActiveTab] = useState<'individual' | 'bulk'>('individual');
@@ -35,7 +36,7 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   const [previewQR, setPreviewQR] = useState<{ ticketCode: string; qrData: string } | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
 
-  useEffect(() {
+  useEffect(() => {
     if (eventId) {
       loadTickets();
     }
