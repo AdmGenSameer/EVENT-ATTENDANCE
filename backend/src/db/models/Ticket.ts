@@ -76,7 +76,6 @@ const TicketSchema = new Schema<ITicket>(
     seatNumber: {
       type: String,
       default: null,
-      index: true,
     },
     qrData: {
       type: String,
@@ -90,7 +89,8 @@ const TicketSchema = new Schema<ITicket>(
 );
 
 TicketSchema.index({ eventId: 1, ticketCode: 1 });
-TicketSchema.index({ ticketCode: 1 });
+// ticketCode index is already created by unique: true and index: true
 TicketSchema.index({ eventId: 1, checkedIn: 1 });
+TicketSchema.index({ seatNumber: 1 });
 
 export const Ticket = mongoose.model<ITicket>('Ticket', TicketSchema);

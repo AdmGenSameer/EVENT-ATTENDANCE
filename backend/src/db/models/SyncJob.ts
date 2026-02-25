@@ -50,6 +50,7 @@ const SyncJobSchema = new Schema<ISyncJob>(
   },
   {
     timestamps: true,
+    suppressReservedKeysWarning: true,
   }
 );
 

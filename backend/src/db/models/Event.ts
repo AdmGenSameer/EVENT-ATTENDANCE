@@ -63,7 +63,7 @@ const EventSchema = new Schema<IEvent>(
   }
 );
 
-EventSchema.index({ slug: 1 });
+// slug index is already created by unique: true
 EventSchema.index({ status: 1 });
 
 export const Event = mongoose.model<IEvent>('Event', EventSchema);
