@@ -192,7 +192,7 @@ eventsRouter.post("/events/:id/sync-google-sheet", async (req, res) => {
     });
 
     const sheetResult = await googleSheetsService.fetchSheetRows(sheetId, body.range);
-    const result = await importService.importTicketsFromRows(eventId, sheetResult.rows, "sheets");
+    const result = await importService.importTicketsFromRegistrationSheet(eventId, sheetResult.rows);
     await syncHistoryService.completeJob(job.id, {
       status: "completed",
       imported: result.imported,

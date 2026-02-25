@@ -7,6 +7,7 @@ class Ticket {
     this.personalEmail,
     required this.qrSignature,
     this.category,
+    this.seatCode,
     this.checkedIn = false,
     this.checkedInAt,
     this.synced = false,
@@ -18,6 +19,7 @@ class Ticket {
   final String name;
   final String? personalEmail;
   final String? category;
+  final String? seatCode;
   final String qrSignature;
   final bool checkedIn;
   final String? checkedInAt;
@@ -32,6 +34,7 @@ class Ticket {
       "personal_email": personalEmail,
       "category": category,
       "qr_signature": qrSignature,
+      "seat_code": seatCode,
       "checked_in": checkedIn ? 1 : 0,
       "checked_in_at": checkedInAt,
       "synced": synced ? 1 : 0,
@@ -46,6 +49,7 @@ class Ticket {
       name: map["name"] as String,
       personalEmail: map["personal_email"] as String?,
       category: map["category"] as String?,
+      seatCode: map["seat_code"] as String?,
       qrSignature: map["qr_signature"] as String,
       checkedIn: (map["checked_in"] as int) == 1,
       checkedInAt: map["checked_in_at"] as String?,
@@ -57,6 +61,7 @@ class Ticket {
     bool? checkedIn,
     String? checkedInAt,
     bool? synced,
+    String? seatCode,
   }) {
     return Ticket(
       id: id,
@@ -66,6 +71,7 @@ class Ticket {
       personalEmail: personalEmail,
       category: category,
       qrSignature: qrSignature,
+      seatCode: seatCode ?? this.seatCode,
       checkedIn: checkedIn ?? this.checkedIn,
       checkedInAt: checkedInAt ?? this.checkedInAt,
       synced: synced ?? this.synced,

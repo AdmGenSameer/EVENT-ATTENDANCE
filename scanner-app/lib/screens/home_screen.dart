@@ -100,6 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
               'Scanner: ${appState.scannerId}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Device: ${appState.deviceName ?? 'Device'}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 20),
             Row(
               children: [

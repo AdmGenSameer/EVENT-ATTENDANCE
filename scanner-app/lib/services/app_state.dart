@@ -16,6 +16,8 @@ class AppState extends ChangeNotifier {
   Event? _currentEvent;
   String? _scannerId;
   String? _apiBaseUrl;
+  int? _deviceId;
+  String? _deviceName;
   bool _isSetup = false;
   bool _isLoading = false;
   bool _isLive = false;
@@ -26,6 +28,8 @@ class AppState extends ChangeNotifier {
   Event? get currentEvent => _currentEvent;
   String? get scannerId => _scannerId;
   String? get apiBaseUrl => _apiBaseUrl;
+  int? get deviceId => _deviceId;
+  String? get deviceName => _deviceName;
   bool get isSetup => _isSetup;
   bool get isLoading => _isLoading;
   bool get isLive => _isLive;
@@ -40,13 +44,15 @@ class AppState extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _scannerId = prefs.getString('scannerId');
       _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'http://localhost:4000/api';
+      _deviceId = prefs.getInt('deviceId');
+      _deviceName = prefs.getString('deviceName');
       
       final eventId = prefs.getString('currentEventId');
       if (eventId != null) {
         _currentEvent = await _dbService.getEvent(eventId);
       }
 
-      _isSetup = _currentEvent != null && _scannerId != null;
+      _isSetup = _currentEvent != null && _scannerId != null && _deviceId != null;
     } catch (e) {
       debugPrint('[AppState] Initialize failed: $e');
     } finally {
@@ -64,6 +70,8 @@ class AppState extends ChangeNotifier {
 
       _scannerId = prefs.getString('scannerId') ?? defaultScannerId;
       _apiBaseUrl = prefs.getString('apiBaseUrl') ?? defaultApiBaseUrl;
+      _deviceId = prefs.getInt('deviceId');
+      _deviceName = prefs.getString('deviceName');
 
       await prefs.setString('scannerId', _scannerId!);
       await prefs.setString('apiBaseUrl', _apiBaseUrl!);
@@ -87,7 +95,14 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      _isSetup = _currentEvent != null && _scannerId != null;
+      if (_deviceId == null) {
+        _deviceId = 1;
+        _deviceName = 'Device 1';
+        await prefs.setInt('deviceId', _deviceId!);
+        await prefs.setString('deviceName', _deviceName!);
+      }
+
+      _isSetup = _currentEvent != null && _scannerId != null && _deviceId != null;
       if (_isSetup) {
         startLivePolling();
         await refreshLiveStatus();
@@ -105,6 +120,8 @@ class AppState extends ChangeNotifier {
     _isLoading = false;
     _scannerId = defaultScannerId;
     _apiBaseUrl = "";
+    _deviceId = 1;
+    _deviceName = "Device 1";
     _currentEvent = Event(
       id: "demo-xenith-26",
       name: "Xenith 26",
@@ -156,18 +173,24 @@ class AppState extends ChangeNotifier {
     required String scannerId,
     required Event event,
     required String apiBaseUrl,
+    required int deviceId,
+    required String deviceName,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('scannerId', scannerId);
       await prefs.setString('currentEventId', event.id);
       await prefs.setString('apiBaseUrl', apiBaseUrl);
+      await prefs.setInt('deviceId', deviceId);
+      await prefs.setString('deviceName', deviceName);
 
       await _dbService.insertEvent(event);
 
       _scannerId = scannerId;
       _currentEvent = event;
       _apiBaseUrl = apiBaseUrl;
+      _deviceId = deviceId;
+      _deviceName = deviceName;
       _isSetup = true;
 
       notifyListeners();
@@ -183,12 +206,16 @@ class AppState extends ChangeNotifier {
       await prefs.remove('scannerId');
       await prefs.remove('currentEventId');
       await prefs.remove('apiBaseUrl');
+      await prefs.remove('deviceId');
+      await prefs.remove('deviceName');
 
       await _dbService.clearAllData();
 
       _scannerId = null;
       _currentEvent = null;
       _apiBaseUrl = null;
+      _deviceId = null;
+      _deviceName = null;
       _isSetup = false;
 
       notifyListeners();

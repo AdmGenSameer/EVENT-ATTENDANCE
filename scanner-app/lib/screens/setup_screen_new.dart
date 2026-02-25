@@ -19,6 +19,8 @@ class _SetupScreenState extends State<SetupScreen> {
   final _apiBaseUrlController = TextEditingController(
     text: 'http://192.168.1.100:4000/api', // Default for local network
   );
+  int _selectedDeviceId = 1;
+  String _selectedDeviceName = 'Device 1';
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -47,11 +49,20 @@ class _SetupScreenState extends State<SetupScreen> {
       // Fetch event details
       final event = await apiService.getEventBySlug(_eventSlugController.text.trim());
 
+      // Persist device config in local SQLite
+      await dbService.saveDeviceConfig(
+        eventId: event.id,
+        deviceId: _selectedDeviceId,
+        deviceName: _selectedDeviceName,
+      );
+
       // Setup app state
       await appState.setupScanner(
         scannerId: _scannerIdController.text.trim(),
         event: event,
         apiBaseUrl: _apiBaseUrlController.text.trim(),
+        deviceId: _selectedDeviceId,
+        deviceName: _selectedDeviceName,
       );
 
       // Initial sync
@@ -194,6 +205,29 @@ class _SetupScreenState extends State<SetupScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Device selection
+              DropdownButtonFormField<int>(
+                value: _selectedDeviceId,
+                decoration: const InputDecoration(
+                  labelText: 'Connect Device',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.usb),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('Device 1')),
+                  DropdownMenuItem(value: 2, child: Text('Device 2')),
+                  DropdownMenuItem(value: 3, child: Text('Device 3')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedDeviceId = value;
+                    _selectedDeviceName = 'Device $value';
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+
               // Event Slug
               TextFormField(
                 controller: _eventSlugController,
@@ -263,7 +297,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text(
-                        'Setup Scanner',
+                        'Connect Device',
                         style: TextStyle(fontSize: 16),
                       ),
               ),

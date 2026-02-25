@@ -8,6 +8,7 @@ import '../services/database.dart';
 import '../services/api_service.dart';
 import '../services/sync_service.dart';
 import '../services/qr_verifier.dart';
+import '../services/seat_allocation_service.dart';
 import '../models/ticket.dart';
 import 'dart:async';
 
@@ -23,6 +24,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
   final DatabaseService _dbService = DatabaseService();
+  late final SeatAllocationService _seatService;
   late SyncService _syncService;
 
   String _status = 'Ready to scan';
@@ -44,6 +46,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
       apiService: ApiService(baseUrl: appState.apiBaseUrl!),
       dbService: _dbService,
     );
+    _seatService = SeatAllocationService(dbService: _dbService);
     _startBackgroundTasks();
     _loadStats();
   }
@@ -106,6 +109,32 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
       }
     } catch (e) {
       debugPrint('[Scanner] Load stats failed: $e');
+    }
+  }
+
+  Future<void> _refreshStats() async {
+    try {
+      final appState = context.read<AppState>();
+      if (appState.currentEvent == null) return;
+
+      // Fetch both stats and status in parallel
+      final results = await Future.wait([
+        _dbService.getCheckedInCount(appState.currentEvent!.id),
+        _dbService.getTotalTicketCount(appState.currentEvent!.id),
+        _syncService.isOnline(),
+        _syncService.getPendingCount(),
+      ]);
+      
+      if (mounted) {
+        setState(() {
+          _checkedInCount = results[0] as int;
+          _totalTickets = results[1] as int;
+          _isOnline = results[2] as bool;
+          _pendingSyncCount = results[3] as int;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Scanner] Refresh stats failed: $e');
     }
   }
 
@@ -181,31 +210,69 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
         timestamp,
       );
 
-      // Add to sync queue
-      await _syncService.addToSyncQueue(
+      // Seat allocation (device-based, pair-aware)
+      final deviceId = appState.deviceId ?? 1;
+      final section = _resolveSection(ticket.category);
+      final isDuo = _isDuoTicket(ticket.category);
+
+      final seatResult = await _seatService.assignSeatForTicket(
+        eventId: event.id,
+        ticketId: ticket.id,
+        isDuo: isDuo,
+        deviceId: deviceId,
+        section: section,
+      );
+
+      if (seatResult != null) {
+        final seatCodes = seatResult.seatCodes
+            .map(SeatAllocationService.formatSeatCode)
+            .join(', ');
+        await _dbService.updateTicketSeat(ticket.id, seatCodes);
+      }
+
+      // Add to sync queue (non-blocking)
+      _syncService.addToSyncQueue(
         ticketId: ticket.id,
         action: 'checkin',
         timestamp: timestamp,
       );
 
-      // Update stats
-      await _loadStats();
-      _updateStatus();
+      // Update stats (batched, non-blocking)
+      _refreshStats();
 
       // Show success
       final updatedTicket = ticket.copyWith(
         checkedIn: true,
         checkedInAt: timestamp.toIso8601String(),
+        seatCode: seatResult == null
+            ? ticket.seatCode
+            : seatResult.seatCodes
+                .map(SeatAllocationService.formatSeatCode)
+                .join(', '),
       );
-      
-      _showSuccess('Check-in successful', updatedTicket);
+      final seatLabel = updatedTicket.seatCode == null
+          ? ''
+          : '\nSeat: ${updatedTicket.seatCode}';
+      _showSuccess('Checked in successfully$seatLabel', updatedTicket);
       HapticFeedback.lightImpact();
-
     } catch (e) {
       debugPrint('[Scanner] Process QR failed: $e');
       _showError('Verification failed: ${e.toString()}');
       HapticFeedback.heavyImpact();
     }
+  }
+
+  String _resolveSection(String? category) {
+    final upper = (category ?? '').toUpperCase();
+    if (upper.contains('FRONT') || upper.contains('STUDENT') || upper.contains('CHILD')) {
+      return 'front';
+    }
+    return 'rear';
+  }
+
+  bool _isDuoTicket(String? category) {
+    final upper = (category ?? '').toUpperCase();
+    return upper.contains('DUO') || upper.contains('COUPLE');
   }
 
   void _showSuccess(String message, Ticket ticket) {
@@ -310,8 +377,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
           ),
         );
 
-        await _loadStats();
-        await _updateStatus();
+        await _refreshStats();
       }
     } catch (e) {
       if (mounted) {

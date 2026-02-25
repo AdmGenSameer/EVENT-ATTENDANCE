@@ -8,7 +8,7 @@ export interface ISyncJob extends Document {
   imported?: number;
   skipped?: number;
   errorCount?: number;
-  errors?: string[];
+  syncErrors?: string[];
   rowCount?: number;
   totalRows?: number;
   truncated?: boolean;
@@ -38,7 +38,7 @@ const SyncJobSchema = new Schema<ISyncJob>(
     imported: Number,
     skipped: Number,
     errorCount: Number,
-    errors: [String],
+    syncErrors: [String],
     rowCount: Number,
     totalRows: Number,
     truncated: Boolean,

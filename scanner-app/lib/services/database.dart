@@ -28,7 +28,7 @@ class DatabaseService {
       final path = join(dbPath, "eventqr_scanner.db");
       return await openDatabase(
         path,
-        version: 2,
+        version: 3,
         onCreate: _createTables,
         onUpgrade: _upgradeDatabase,
       );
@@ -61,9 +61,38 @@ class DatabaseService {
           personal_email TEXT,
           category TEXT,
           qr_signature TEXT NOT NULL,
+          seat_code TEXT,
           checked_in INTEGER DEFAULT 0,
           checked_in_at TEXT,
           synced INTEGER DEFAULT 0
+        )
+      """);
+
+      await db.execute("""
+        CREATE TABLE device_config (
+          event_id TEXT PRIMARY KEY,
+          device_id INTEGER NOT NULL,
+          device_name TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      """);
+
+      await db.execute("""
+        CREATE TABLE seat_allocations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id TEXT NOT NULL,
+          section TEXT NOT NULL,
+          row TEXT NOT NULL,
+          row_index INTEGER NOT NULL,
+          number INTEGER NOT NULL,
+          seat_code TEXT NOT NULL,
+          pair_id TEXT NOT NULL,
+          pair_index INTEGER NOT NULL,
+          pair_size INTEGER NOT NULL,
+          device_id INTEGER NOT NULL,
+          status TEXT NOT NULL,
+          ticket_id TEXT,
+          assigned_at TEXT
         )
       """);
 
@@ -79,6 +108,27 @@ class DatabaseService {
         )
       """);
 
+      // Create indices for faster queries
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_lookup 
+        ON seat_allocations(event_id, section, device_id, status)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_pair 
+        ON seat_allocations(event_id, pair_id, status)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_order 
+        ON seat_allocations(row_index, pair_index, number)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_tickets_event 
+        ON tickets(event_id, checked_in)
+      """);
+
       debugPrint("[DatabaseService] tables created");
     } catch (error) {
       debugPrint("[DatabaseService] create tables failed: $error");
@@ -89,6 +139,56 @@ class DatabaseService {
   Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute("ALTER TABLE tickets ADD COLUMN personal_email TEXT");
+    }
+    if (oldVersion < 3) {
+      await db.execute("ALTER TABLE tickets ADD COLUMN seat_code TEXT");
+      await db.execute("""
+        CREATE TABLE device_config (
+          event_id TEXT PRIMARY KEY,
+          device_id INTEGER NOT NULL,
+          device_name TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      """);
+      await db.execute("""
+        CREATE TABLE seat_allocations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id TEXT NOT NULL,
+          section TEXT NOT NULL,
+          row TEXT NOT NULL,
+          row_index INTEGER NOT NULL,
+          number INTEGER NOT NULL,
+          seat_code TEXT NOT NULL,
+          pair_id TEXT NOT NULL,
+          pair_index INTEGER NOT NULL,
+          pair_size INTEGER NOT NULL,
+          device_id INTEGER NOT NULL,
+          status TEXT NOT NULL,
+          ticket_id TEXT,
+          assigned_at TEXT
+        )
+      """);
+      
+      // Create indices for optimal query performance
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_lookup 
+        ON seat_allocations(event_id, section, device_id, status)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_pair 
+        ON seat_allocations(event_id, pair_id, status)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_seat_allocations_order 
+        ON seat_allocations(row_index, pair_index, number)
+      """);
+      
+      await db.execute("""
+        CREATE INDEX idx_tickets_event 
+        ON tickets(event_id, checked_in)
+      """);
     }
   }
 
@@ -173,6 +273,78 @@ class DatabaseService {
     } catch (error) {
       debugPrint("[DatabaseService] save ticket failed: $error");
       rethrow;
+    }
+  }
+
+  Future<void> updateTicketSeat(String ticketId, String seatCode) async {
+    try {
+      final db = await database;
+      await db.update(
+        "tickets",
+        {"seat_code": seatCode},
+        where: "id = ?",
+        whereArgs: [ticketId],
+      );
+    } catch (error) {
+      debugPrint("[DatabaseService] update ticket seat failed: $error");
+      rethrow;
+    }
+  }
+
+  Future<void> saveDeviceConfig({
+    required String eventId,
+    required int deviceId,
+    required String deviceName,
+  }) async {
+    try {
+      final db = await database;
+      await db.insert(
+        "device_config",
+        {
+          "event_id": eventId,
+          "device_id": deviceId,
+          "device_name": deviceName,
+          "updated_at": DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (error) {
+      debugPrint("[DatabaseService] save device config failed: $error");
+      rethrow;
+    }
+  }
+
+  Future<int?> getDeviceId(String eventId) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        "device_config",
+        columns: ["device_id"],
+        where: "event_id = ?",
+        whereArgs: [eventId],
+      );
+      if (maps.isEmpty) return null;
+      return maps.first["device_id"] as int?;
+    } catch (error) {
+      debugPrint("[DatabaseService] get device id failed: $error");
+      return null;
+    }
+  }
+
+  Future<String?> getDeviceName(String eventId) async {
+    try {
+      final db = await database;
+      final maps = await db.query(
+        "device_config",
+        columns: ["device_name"],
+        where: "event_id = ?",
+        whereArgs: [eventId],
+      );
+      if (maps.isEmpty) return null;
+      return maps.first["device_name"] as String?;
+    } catch (error) {
+      debugPrint("[DatabaseService] get device name failed: $error");
+      return null;
     }
   }
 
