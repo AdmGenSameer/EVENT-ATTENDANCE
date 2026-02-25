@@ -52,20 +52,14 @@ const TicketCard = ({ regNo, onClose }) => {
           </p>
         </div>
 
-        {ticket.duoParticipants && ticket.duoParticipants.length > 0 && (
-          <div className="text-center mb-4">
-            <h2 className="font-semibold">Duo Participants</h2>
-            {ticket.duoParticipants.map((duo, index) => (
-              <p key={index}>
-                {duo.fullName} - {duo.status}
-              </p>
-            ))}
-          </div>
-        )}
 
         <div className="w-full flex items-center justify-center mt-4">
           {ticket.qrCode ? (
-            <img src={ticket.qrCode} alt="QR Code" className="w-64 h-64" />
+            <img
+              src={`data:image/png;base64,${ticket.qrCode}`}
+              alt="QR Code"
+              className="w-64 h-64"
+            />
           ) : (
             <p className="text-gray-500">No QR code available</p>
           )}
