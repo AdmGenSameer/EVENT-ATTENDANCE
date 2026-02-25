@@ -279,10 +279,7 @@ export const qrService = {
 
   //updated bulk generate to work with participants instead of tickets
   async generateBulkQRs(eventId: string) {
-  try {
-    const event = await Event.findById(eventId);
-    if (!event) throw new Error("Event not found");
-
+    try {
       const event = await Event.findById(eventId).select('+qrPrivateKey');
       if (!event) {
         throw new Error("Event not found");
@@ -335,6 +332,38 @@ export const qrService = {
         }
       }
 
+      // Also generate for participants
+      const participants = await Participants.find({
+        eventId: new Types.ObjectId(eventId),
+        qrData: { $in: [null, ""] },
+      });
+
+      for (const participant of participants) {
+        try {
+          const payload = await qrService.generateSecureQRPayload(
+            participant._id.toString(),
+            eventId,
+            participant.ticketType || "REGULAR_SINGLE",
+            privateKey
+          );
+
+          const payloadJson = JSON.stringify(payload);
+          const qrData = Buffer.from(payloadJson).toString("base64");
+
+          participant.qrData = qrData;
+          await participant.save();
+
+          results.generated += 1;
+          logInfo("qrService:generateBulk", `Generated QR for ${participant.name}`);
+        } catch (error) {
+          results.failed += 1;
+          results.errors.push(
+            `${participant.name}: ${error instanceof Error ? error.message : "unknown error"}`
+          );
+          logWarn("qrService:generateBulk", `Failed for ${participant.name}`, error);
+        }
+      }
+
       logInfo(
         "qrService:generateBulk",
         `Bulk generation complete: ${results.generated} generated, ${results.failed} failed`
@@ -345,49 +374,7 @@ export const qrService = {
       logWarn("qrService:generateBulk", "Bulk generation failed", error);
       throw error;
     }
-    const participants = await Participants.find({
-      eventId: new Types.ObjectId(eventId),
-      qrData: { $in: [null, ""] },
-    });
-
-    const participantResults = {
-      total: participants.length,
-      generated: 0,
-      failed: 0,
-      errors: [] as string[],
-    };
-
-    for (const participant of participants) {
-      try {
-        const payload = await qrService.generateSecureQRPayload(
-          participant._id.toString(),
-          eventId,
-          participant.ticketType || "REGULAR_SINGLE",
-          privateKey
-        );
-
-        const payloadJson = JSON.stringify(payload);
-        const qrData = Buffer.from(payloadJson).toString("base64");
-
-        participant.qrData = qrData;
-        await participant.save();
-
-        results.generated += 1;
-      } catch (error) {
-        results.failed += 1;
-        results.errors.push(
-          `${participant.name}: ${
-            error instanceof Error ? error.message : "unknown error"
-          }`
-        );
-      }
-    }
-
-    return results;
-  } catch (error) {
-    throw error;
-  }
-},
+  },
   /**
    * Verify QR signature (for scanner app)
    * Public key downloaded to mobile and used for offline verification
