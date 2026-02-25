@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../api';
 import '../styles/qr-generator.css';
 
@@ -161,28 +162,39 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
 
   const downloadQR = async (qrData: string, ticketCode: string) => {
     try {
-      // Create canvas from Base64 QR data
+      // Get the SVG element
+      const svg = document.querySelector('.qr-visual svg');
+      if (!svg) {
+        alert('QR code not found');
+        return;
+      }
+
+      // Create canvas and convert SVG to PNG
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-
       if (!ctx) return;
 
-      // Simple QR visualization (in production, use qrcode library for actual QR generation)
-      canvas.width = 300;
-      canvas.height = 300;
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 300, 300);
-      ctx.fillStyle = 'black';
-      ctx.font = '12px monospace';
-      ctx.fillText('QR Data:', 10, 20);
-      ctx.fillText(qrData.slice(0, 40) + '...', 10, 40);
-      ctx.fillText(`Ticket: ${ticketCode}`, 10, 60);
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
 
-      // Download
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
-      link.download = `QR_${ticketCode}.png`;
-      link.click();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        // Download
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `QR_${ticketCode}.png`;
+        link.click();
+      };
+
+      img.src = url;
     } catch (error) {
       console.error('Error downloading QR:', error);
       alert('Failed to download QR');
@@ -263,8 +275,13 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
               <div className="qr-preview-box">
                 <div className="qr-code-display">
                   <p className="ticket-code">{previewQR.ticketCode}</p>
-                  <div className="qr-data-preview">
-                    <code>{previewQR.qrData.slice(0, 50)}...</code>
+                  <div className="qr-visual">
+                    <QRCodeSVG 
+                      value={previewQR.qrData} 
+                      size={256}
+                      level="H"
+                      includeMargin={true}
+                    />
                   </div>
                 </div>
               </div>
