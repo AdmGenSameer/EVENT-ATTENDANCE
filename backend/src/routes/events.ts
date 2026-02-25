@@ -7,6 +7,7 @@ import { syncHistoryService } from "../services/syncHistoryService";
 import { qrService } from "../services/qrService";
 import { seatService } from "../services/seatService";
 import { liveRegistrationService } from "../services/liveRegistrationService";
+import { ticketService } from "../services/ticketService";
 import { logInfo, logWarn, logError } from "../utils/logger";
 
 export const eventsRouter = Router();
@@ -71,6 +72,31 @@ eventsRouter.get("/events/:id", async (req, res) => {
   } catch (error) {
     logWarn("events:get", "Failed to fetch event", error);
     res.status(500).json({ error: "Failed to fetch event" });
+  }
+});
+
+eventsRouter.get("/events/:id/tickets", async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    logInfo("events:tickets", `Fetching tickets for ${eventId}`);
+    const tickets = await ticketService.listTickets(eventId);
+    const normalized = tickets.map((ticket: any) => ({
+      id: ticket._id,
+      eventId: ticket.eventId,
+      ticketCode: ticket.ticketCode,
+      name: ticket.name,
+      personalEmail: ticket.personalEmail,
+      ticketType: ticket.ticketType,
+      checkedIn: ticket.checkedIn,
+      checkedInAt: ticket.checkedInAt || ticket.checkInTime || null,
+      createdAt: ticket.createdAt,
+      qrData: ticket.qrData || null,
+      seatNumber: ticket.seatNumber || null,
+    }));
+    res.json({ tickets: normalized });
+  } catch (error) {
+    logWarn("events:tickets", "Failed to list tickets", error);
+    res.status(500).json({ error: "Failed to list tickets" });
   }
 });
 

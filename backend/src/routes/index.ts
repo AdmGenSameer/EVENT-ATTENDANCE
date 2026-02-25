@@ -8,5 +8,5 @@ export const apiRouter = Router();
 
 apiRouter.use(healthRouter);
 apiRouter.use(eventsRouter);
-apiRouter.use(ticketsRouter);
+apiRouter.use("/tickets", ticketsRouter);
 apiRouter.use(scannerRouter);
