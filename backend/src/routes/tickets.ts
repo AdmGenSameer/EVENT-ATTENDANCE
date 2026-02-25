@@ -7,6 +7,7 @@ import { logInfo, logWarn } from "../utils/logger";
 import multer from "multer";
 import { parseCsv } from "../utils/csv";
 import { Ticket } from "../db/models/Ticket";
+import { Participants } from "../db/models/ParticipantsModel"; 
 
 export const ticketsRouter = Router();
 
@@ -15,26 +16,34 @@ const upload = multer({ storage: multer.memoryStorage() });
 ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
   try {
     const { regNo } = req.params;
-    const ticket = await Ticket.findOne({ ticketCode: regNo }).lean();
 
-    if (!ticket) {
-      return res.status(404).json({ success: false, error: "Ticket not found" });
+    const participant = await Participants.findOne({
+      registrationNumber: regNo,
+    }).lean();
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        error: "Participant not found",
+      });
     }
 
     res.status(200).json({
       success: true,
       participant: {
-        name: ticket.name,
-        email: ticket.personalEmail,
-        registrationNumber: ticket.ticketCode,
-        checkedIn: ticket.checkedIn,
+        name: participant.name,
+        email: participant.email,
+        registrationNumber: participant.registrationNumber,
+        checkedIn: participant.checkedIn,
       },
-      duoParticipants: ticket.duoParticipants || [],
-      qrCode: ticket.qrData || null, // base64 QR from qrService
+      qrCode: participant.qrData || null,
     });
   } catch (error) {
-    console.error("Error fetching ticket:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch ticket" });
+    console.error("Error fetching participant:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch participant",
+    });
   }
 });
 
