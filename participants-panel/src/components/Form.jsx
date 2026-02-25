@@ -1,6 +1,16 @@
 import React from "react";
 
-const Form = () => {
+const Form = ({regNo,setRegNo,setShowTicketCard,msg}) => {
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!regNo.trim()) {
+          msg("Please enter a valid registration number.");
+          return;
+        }
+        else{
+            setShowTicketCard(true);
+        }
+        };
   return (
     <div className="min-h-[50vh] bg-gray-50 flex flex-col justify-center px-4">
       
@@ -16,7 +26,7 @@ const Form = () => {
               Registration Number
             </label>
 
-            <input
+            <input  onChange={(e)=>setRegNo(e.target.value)}
               type="text"
               placeholder="Enter your registration number"
               className="
@@ -40,7 +50,7 @@ const Form = () => {
             />
           </div>
 
-          <button
+          <button onClick={handleSubmit}
             className="
               w-full
               h-14
