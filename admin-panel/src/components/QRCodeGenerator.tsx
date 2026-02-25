@@ -23,6 +23,8 @@ interface QRCodeGeneratorProps {
   eventId: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+
 export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   const [activeTab, setActiveTab] = useState<'individual' | 'bulk'>('individual');
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -43,7 +45,6 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   const loadTickets = async () => {
     try {
       setLoading(true);
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
       const response = await fetch(`${API_BASE}/events/${eventId}/tickets`);
       const data = await response.json();
       setTickets(data.tickets || []);
@@ -68,7 +69,6 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
       setGeneratingTicketId(selectedTicket);
       setResult(null);
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
       const response = await fetch(`${API_BASE}/tickets/events/${eventId}/qr/generate-single`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +120,6 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
       setResult(null);
       setBulkProgress({ current: 0, total: 0 });
 
-      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
       const response = await fetch(`${API_BASE}/tickets/events/${eventId}/qr/generate-bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
