@@ -17,6 +17,7 @@ export interface ITicket extends Document {
   checkInTime: Date | null;
   checkInBy: string | null;
   seatNumber?: string | null;
+  qrData?: string | null;
   duoParticipants: IDuoParticipant[];
   createdAt: Date;
   updatedAt: Date;
@@ -76,6 +77,10 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       default: null,
       index: true,
+    },
+    qrData: {
+      type: String,
+      default: null,
     },
     duoParticipants: [DuoParticipantSchema],
   },

@@ -6,7 +6,7 @@ import { googleSheetsService } from "../services/googleSheetsService";
 import { logInfo, logWarn } from "../utils/logger";
 import multer from "multer";
 import { parseCsv } from "../utils/csv";
-import { Ticket } from "../models/Ticket";
+import { Ticket } from "../db/models/Ticket";
 
 export const ticketsRouter = Router();
 
