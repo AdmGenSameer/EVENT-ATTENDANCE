@@ -329,7 +329,7 @@ export const qrService = {
   } catch (error) {
     throw error;
   }
-}
+},
   /**
    * Verify QR signature (for scanner app)
    * Public key downloaded to mobile and used for offline verification
