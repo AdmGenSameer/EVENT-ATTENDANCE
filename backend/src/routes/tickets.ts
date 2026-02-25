@@ -13,12 +13,13 @@ export const ticketsRouter = Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// GET /api/events/tickets/:regNo
 ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
   try {
     const { regNo } = req.params;
 
-    const participant = await Participants.findOne({
-      registrationNumber: regNo,
+    const participant = await Ticket.findOne({
+      registrationNo: regNo,
     }).lean();
 
     if (!participant) {
@@ -28,13 +29,25 @@ ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
       });
     }
 
+    // Map duo participants
+    const duo = participant.duoParticipants?.map(d => ({
+      participantNumber: d.participantNumber,
+      name: d.fullName,
+      status: d.status,
+    }));
+
     res.status(200).json({
       success: true,
       participant: {
         name: participant.name,
-        email: participant.email,
-        registrationNumber: participant.registrationNumber,
+        personalEmail: participant.personalEmail,
+        registrationNo: participant.registrationNo,
+        contactNo: participant.contactNo,
+        ticketType: participant.ticketType,
         checkedIn: participant.checkedIn,
+        checkedInAt: participant.checkedInAt || participant.checkInTime || null,
+        seatNumber: participant.seatNumber || null,
+        duo: duo && duo.length ? duo[0] : null, // if duo exists, send first
       },
       qrCode: participant.qrData || null,
     });
