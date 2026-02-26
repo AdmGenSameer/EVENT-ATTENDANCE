@@ -105,7 +105,10 @@ exports.ticketsRouter.get("/fetch-by-reg", async (req, res) => {
         if (!regNo)
             return res.status(400).json({ success: false, error: "Registration number required" });
         const query = {
-            registrationNo: regNo.trim(),
+            registrationNo: {
+                $regex: `^${regNo.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                $options: "i" // Case-insensitive
+            }
         };
         // If eventId is provided, filter by event
         if (eventId) {
@@ -480,6 +483,55 @@ exports.ticketsRouter.delete("/events/:eventId/clear", async (req, res) => {
         (0, logger_1.logWarn)("tickets:clear", "Failed to clear tickets", error);
         res.status(500).json({
             error: "Failed to clear tickets",
+            message: error instanceof Error ? error.message : "Unknown error",
+        });
+    }
+});
+/**
+ * POST /api/tickets/events/:eventId/deduplicate
+ * Remove duplicate tickets based on registration number, keeping only the first one
+ */
+exports.ticketsRouter.post("/events/:eventId/deduplicate", async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        (0, logger_1.logInfo)("tickets:deduplicate", `Deduplicating tickets for event ${eventId}`);
+        // Find all tickets for this event
+        const tickets = await Ticket_1.Ticket.find({ eventId }).sort({ createdAt: 1 });
+        const seen = new Set();
+        const duplicates = [];
+        for (const ticket of tickets) {
+            const regNo = ticket.registrationNo ? ticket.registrationNo.toLowerCase() : null;
+            if (regNo && seen.has(regNo)) {
+                duplicates.push(ticket._id.toString());
+            }
+            else if (regNo) {
+                seen.add(regNo);
+            }
+        }
+        // Delete duplicates
+        if (duplicates.length > 0) {
+            const result = await Ticket_1.Ticket.deleteMany({
+                _id: { $in: duplicates },
+            });
+            (0, logger_1.logInfo)("tickets:deduplicate", `Removed ${result.deletedCount} duplicate tickets`);
+            res.json({
+                success: true,
+                duplicatesRemoved: result.deletedCount,
+                message: `Successfully removed ${result.deletedCount} duplicate tickets`,
+            });
+        }
+        else {
+            res.json({
+                success: true,
+                duplicatesRemoved: 0,
+                message: "No duplicates found",
+            });
+        }
+    }
+    catch (error) {
+        (0, logger_1.logWarn)("tickets:deduplicate", "Failed to deduplicate tickets", error);
+        res.status(500).json({
+            error: "Failed to deduplicate tickets",
             message: error instanceof Error ? error.message : "Unknown error",
         });
     }
