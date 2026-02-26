@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
 const TicketCard = ({ regNo, onClose }) => {
   const [ticket, setTicket] = useState(null);
@@ -11,7 +12,7 @@ const TicketCard = ({ regNo, onClose }) => {
   const fetchTicketDetails = async () => {
     try {
       const response = await fetch(
-        `https://${process.env.URL}/api/events/tickets/${regNo}`
+        `https://event-attendance-production.up.railway.app/api/tickets/events/tickets/${regNo}`
       );
 
       if (!response.ok) {
@@ -36,7 +37,7 @@ const TicketCard = ({ regNo, onClose }) => {
   if (loading) return null;
   if (!ticket) return <div className="p-6 text-center">Ticket not found</div>;
 
-  const { participant, qrData } = ticket;
+  const { participant, qrCode } = ticket;
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -52,21 +53,19 @@ const TicketCard = ({ regNo, onClose }) => {
           Your Ticket
         </h1>
 
+        {/* Participant Info */}
         <div className="text-center mb-4">
           <p><strong>Name:</strong> {participant.name}</p>
           <p><strong>Email:</strong> {participant.personalEmail}</p>
           <p><strong>Reg No:</strong> {participant.registrationNo}</p>
           <p><strong>Contact No:</strong> {participant.contactNo}</p>
           <p><strong>Ticket Type:</strong> {participant.ticketType}</p>
-          <p><strong>Seat Number:</strong> {participant.seatNumber}</p>
+          <p><strong>Seat Number:</strong> {participant.seatNumber || "N/A"}</p>
           <p className="flex justify-center items-center gap-2">
             <strong>Status:</strong>
             {participant.checkedIn ? (
               <span className="text-green-600 flex items-center gap-1">
                 Checked In
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
               </span>
             ) : (
               <span className="text-red-500">Not Checked In ❌</span>
@@ -74,23 +73,19 @@ const TicketCard = ({ regNo, onClose }) => {
           </p>
         </div>
 
-        {participant.duo && (
+        {/* Duo Participant (only if different) */}
+        {participant.duo && participant.duo.name && participant.duo.name !== participant.name && (
           <div className="text-center mb-4 border-t pt-4">
             <h2 className="font-semibold text-lg mb-2">Duo Participant</h2>
             <p><strong>Name:</strong> {participant.duo.name}</p>
-            <p><strong>Email:</strong> {participant.duo.email}</p>
-            <p><strong>Reg No:</strong> {participant.duo.registrationNo}</p>
-            <p><strong>Contact No:</strong> {participant.duo.contactNo}</p>
-            <p><strong>Ticket Type:</strong> {participant.duo.ticketType}</p>
+            <p><strong>Email:</strong> {participant.duo.email || "N/A"}</p>
+            <p><strong>Reg No:</strong> {participant.duo.registrationNo || "N/A"}</p>
+            <p><strong>Contact No:</strong> {participant.duo.contactNo || "N/A"}</p>
+            <p><strong>Ticket Type:</strong> {participant.duo.ticketType || "N/A"}</p>
             <p className="flex justify-center items-center gap-2">
               <strong>Status:</strong>
               {participant.duo.checkedIn ? (
-                <span className="text-green-600 flex items-center gap-1">
-                  Checked In
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                </span>
+                <span className="text-green-600">Checked In</span>
               ) : (
                 <span className="text-red-500">Not Checked In ❌</span>
               )}
@@ -98,13 +93,10 @@ const TicketCard = ({ regNo, onClose }) => {
           </div>
         )}
 
+        {/* QR Code */}
         <div className="w-full flex items-center justify-center mt-4">
-          {qrData ? (
-            <img
-              src={qrData.startsWith("data:image") ? qrData : `data:image/png;base64,${qrData}`}
-              alt="QR Code"
-              className="w-64 h-64 border p-2 rounded-xl shadow-lg"
-            />
+          {qrCode ? (
+            <QRCodeSVG value={qrCode} size={256} level="H" includeMargin={true} />
           ) : (
             <p className="text-gray-500">No QR code available</p>
           )}
