@@ -3,7 +3,7 @@ import React from 'react';
 const Header = () => {
   return (
     <div className="relative text-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 shadow-lg">
-      <h1 className="text-3xl font-bold tracking-wide">Data Science Club Event</h1>
+      <h1 className="text-3xl font-bold tracking-wide">Xenith '26</h1>
       <p className="mt-2 text-sm opacity-80">Check your registration & access your ticket instantly</p>
       {/* Decorative SVG */}
       <svg
