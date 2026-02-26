@@ -12,22 +12,22 @@ const TicketCard = ({ regNo, onClose }) => {
   const fetchTicketDetails = async () => {
     try {
       const response = await fetch(
-        `https://event-attendance-production.up.railway.app/api/tickets/events/tickets/${regNo}`
+        `https://event-attendance-production.up.railway.app/api/tickets/fetch-by-reg?regNo=${encodeURIComponent(regNo)}`
       );
 
       if (!response.ok) {
-        console.error("Participant not found:", response.status);
+        console.error("Ticket not found:", response.status);
         setTicket(null);
         return;
       }
 
       const data = await response.json();
-      console.log("Fetched participant:", data);
+      console.log("Fetched ticket:", data);
 
       if (data.success) setTicket(data);
       else setTicket(null);
     } catch (error) {
-      console.error("Error fetching participant:", error);
+      console.error("Error fetching ticket:", error);
       setTicket(null);
     } finally {
       setLoading(false);
