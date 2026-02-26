@@ -34,8 +34,9 @@ Future<VerificationResult> verifyQrToken({
   int? nowEpoch,
 }) async {
   try {
-    debugPrint("[verifyQrToken] start");
+    debugPrint("[verifyQrToken] start, token: $token");
     final payload = QrPayload.fromToken(token);
+    debugPrint("[verifyQrToken] payload parsed: tid=${payload.ticketId}, sig=${payload.signature.substring(0, 20)}...");
     if (payload.exp != null && nowEpoch != null && payload.exp! < nowEpoch) {
       return (isValid: false, reason: "expired", payload: payload);
     }

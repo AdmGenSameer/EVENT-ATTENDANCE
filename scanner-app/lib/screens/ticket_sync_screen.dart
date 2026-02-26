@@ -163,6 +163,24 @@ class _TicketSyncScreenState extends State<TicketSyncScreen> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
+          if (_isDownloading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 2,
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _downloadTickets,
+              tooltip: 'Download Tickets',
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
