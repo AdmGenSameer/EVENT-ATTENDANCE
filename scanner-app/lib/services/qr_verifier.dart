@@ -21,25 +21,38 @@ Uint8List _decodePem(String pem) {
 }
 
 Uint8List _extractEd25519PublicKey(Uint8List spkiBytes) {
-  final parser = ASN1Parser(spkiBytes);
-  final topLevelSeq = parser.nextObject() as ASN1Sequence;
-  final publicKeyBitString = topLevelSeq.elements?.last as ASN1BitString;
-  
-  // BIT STRING format: first byte is number of unused bits, followed by the key
-  // For Ed25519, we need the next 32 bytes (skip the first unused bits byte)
-  final allBytes = publicKeyBitString.valueBytes();
-  
-  // Skip the first byte (unused bits indicator) and take the next 32 bytes
-  if (allBytes.length >= 33) {
-    return Uint8List.fromList(allBytes.sublist(1, 33));
+  try {
+    debugPrint("[_extractEd25519PublicKey] input length: ${spkiBytes.length}");
+    
+    final parser = ASN1Parser(spkiBytes);
+    final topLevelSeq = parser.nextObject() as ASN1Sequence;
+    debugPrint("[_extractEd25519PublicKey] parsed sequence with ${topLevelSeq.elements?.length} elements");
+    
+    final publicKeyBitString = topLevelSeq.elements?.last as ASN1BitString;
+    debugPrint("[_extractEd25519PublicKey] BIT STRING extracted");
+    
+    // BIT STRING format: first byte is number of unused bits, followed by the key
+    // For Ed25519, we need the next 32 bytes (skip the first unused bits byte)
+    final allBytes = publicKeyBitString.valueBytes();
+    debugPrint("[_extractEd25519PublicKey] BIT STRING value bytes length: ${allBytes.length}");
+    
+    // Skip the first byte (unused bits indicator) and take the next 32 bytes
+    if (allBytes.length >= 33) {
+      debugPrint("[_extractEd25519PublicKey] extracting 32 bytes from offset 1");
+      return Uint8List.fromList(allBytes.sublist(1, 33));
+    }
+    
+    // Fallback: if it's exactly 32 bytes, use as-is
+    if (allBytes.length == 32) {
+      debugPrint("[_extractEd25519PublicKey] using all 32 bytes as-is");
+      return Uint8List.fromList(allBytes);
+    }
+    
+    throw Exception("Invalid Ed25519 public key size: ${allBytes.length}");
+  } catch (e) {
+    debugPrint("[_extractEd25519PublicKey] error: $e");
+    rethrow;
   }
-  
-  // Fallback: if it's exactly 32 bytes, use as-is
-  if (allBytes.length == 32) {
-    return Uint8List.fromList(allBytes);
-  }
-  
-  throw Exception("Invalid Ed25519 public key size: ${allBytes.length}");
 }
 
 Future<VerificationResult> verifyQrToken({
@@ -81,6 +94,7 @@ Future<VerificationResult> verifyQrToken({
     debugPrint("[verifyQrToken] public key decoded, length: ${spkiBytes.length}");
     
     final publicKeyBytes = _extractEd25519PublicKey(spkiBytes);
+    debugPrint("[verifyQrToken] Ed25519 public key extracted, length: ${publicKeyBytes.length}");
     debugPrint("[verifyQrToken] Ed25519 public key extracted, length: ${publicKeyBytes.length}");
 
     final algorithm = Ed25519();
