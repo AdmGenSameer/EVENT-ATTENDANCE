@@ -543,3 +543,35 @@ exports.ticketsRouter.post("/events/:eventId/deduplicate", async (req, res) => {
         });
     }
 });
+/**
+ * DELETE /api/tickets/events/:eventId/all
+ * Delete ALL tickets for an event (requires confirmation)
+ */
+exports.ticketsRouter.delete("/events/:eventId/all", async (req, res) => {
+    try {
+        const eventId = req.params.eventId;
+        const { confirm } = req.body;
+        // Require explicit confirmation to prevent accidental deletion
+        if (confirm !== true) {
+            return res.status(400).json({
+                error: "Confirmation required",
+                message: "Send confirm: true in request body to delete all tickets",
+            });
+        }
+        (0, logger_1.logWarn)("tickets:delete-all", `Deleting ALL tickets for event ${eventId}`);
+        const result = await Ticket_1.Ticket.deleteMany({ eventId });
+        (0, logger_1.logInfo)("tickets:delete-all", `Deleted ${result.deletedCount} tickets for event ${eventId}`);
+        res.json({
+            success: true,
+            deletedCount: result.deletedCount,
+            message: `Successfully deleted ${result.deletedCount} tickets from event`,
+        });
+    }
+    catch (error) {
+        (0, logger_1.logWarn)("tickets:delete-all", "Failed to delete all tickets", error);
+        res.status(500).json({
+            error: "Failed to delete tickets",
+            message: error instanceof Error ? error.message : "Unknown error",
+        });
+    }
+});
