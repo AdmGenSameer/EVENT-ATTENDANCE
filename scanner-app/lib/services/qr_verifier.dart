@@ -12,6 +12,18 @@ typedef VerificationResult = ({
 });
 
 Uint8List _decodePem(String pem) {
+  // Check if it's a hex string (64 hex chars = 32 bytes for Ed25519)
+  if (pem.length == 64 && !pem.contains('BEGIN')) {
+    debugPrint("[_decodePem] detected hex format, length: ${pem.length}");
+    final hexBytes = <int>[];
+    for (int i = 0; i < pem.length; i += 2) {
+      hexBytes.add(int.parse(pem.substring(i, i + 2), radix: 16));
+    }
+    return Uint8List.fromList(hexBytes);
+  }
+  
+  // Otherwise decode as PEM
+  debugPrint("[_decodePem] decoding as PEM format");
   final sanitized = pem
       .replaceAll("-----BEGIN PUBLIC KEY-----", "")
       .replaceAll("-----END PUBLIC KEY-----", "")
@@ -20,19 +32,24 @@ Uint8List _decodePem(String pem) {
   return base64.decode(sanitized);
 }
 
-Uint8List _extractEd25519PublicKey(Uint8List spkiBytes) {
+Uint8List _extractEd25519PublicKey(Uint8List keyBytes) {
   try {
-    debugPrint("[_extractEd25519PublicKey] input length: ${spkiBytes.length}");
+    debugPrint("[_extractEd25519PublicKey] input length: ${keyBytes.length}");
     
-    final parser = ASN1Parser(spkiBytes);
+    // If it's already 32 bytes (raw Ed25519 key), use it directly
+    if (keyBytes.length == 32) {
+      debugPrint("[_extractEd25519PublicKey] already 32 bytes, using directly");
+      return keyBytes;
+    }
+    
+    // Otherwise try to parse as SPKI
+    final parser = ASN1Parser(keyBytes);
     final topLevelSeq = parser.nextObject() as ASN1Sequence;
     debugPrint("[_extractEd25519PublicKey] parsed sequence with ${topLevelSeq.elements?.length} elements");
     
     final publicKeyBitString = topLevelSeq.elements?.last as ASN1BitString;
     debugPrint("[_extractEd25519PublicKey] BIT STRING extracted");
     
-    // BIT STRING format: first byte is number of unused bits, followed by the key
-    // For Ed25519, we need the next 32 bytes (skip the first unused bits byte)
     final allBytes = publicKeyBitString.valueBytes();
     debugPrint("[_extractEd25519PublicKey] BIT STRING value bytes length: ${allBytes.length}");
     
@@ -42,7 +59,6 @@ Uint8List _extractEd25519PublicKey(Uint8List spkiBytes) {
       return Uint8List.fromList(allBytes.sublist(1, 33));
     }
     
-    // Fallback: if it's exactly 32 bytes, use as-is
     if (allBytes.length == 32) {
       debugPrint("[_extractEd25519PublicKey] using all 32 bytes as-is");
       return Uint8List.fromList(allBytes);
