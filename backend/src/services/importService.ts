@@ -190,14 +190,16 @@ export const importService = {
         eventObjectId = new Types.ObjectId();
       }
 
-      // Check for duplicate participant with same email for this event
-      const existingParticipant = await Ticket.findOne({
-        eventId: eventObjectId,
-        personalEmail: participantData.email.toLowerCase(),
-      });
+      // Check for duplicate participant with same registration number for this event
+      if (participantData.registrationNo) {
+        const existingParticipant = await Ticket.findOne({
+          eventId: eventObjectId,
+          registrationNo: participantData.registrationNo,
+        });
 
-      if (existingParticipant) {
-        throw new Error(`Participant with email ${participantData.email} already exists for this event (Ticket: ${existingParticipant.ticketCode})`);
+        if (existingParticipant) {
+          throw new Error(`Participant with registration number ${participantData.registrationNo} already exists for this event (Ticket: ${existingParticipant.ticketCode})`);
+        }
       }
 
       const ticketCode = generateTicketCode(eventId.slice(0, 4).toUpperCase());

@@ -19,9 +19,8 @@ const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage()
 exports.ticketsRouter.get("/:regNo", async (req, res) => {
     try {
         let { regNo } = req.params;
-        regNo = regNo.toUpperCase();
         const participant = await Ticket_1.Ticket.findOne({
-            registrationNo: regNo,
+            registrationNo: { $regex: new RegExp(`^${regNo}$`, "i") },
         }).lean();
         console.log("Fetched participant for regNo:", regNo, participant);
         if (!participant) {
