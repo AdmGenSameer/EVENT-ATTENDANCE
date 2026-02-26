@@ -6,4 +6,6 @@ exports.TICKET_PRICES = {
     COUPLE: 1198,
     STUDENT: 950,
     CHILD: 1550,
+    REGULAR: 499,
+    BALCONY: 499,
 };

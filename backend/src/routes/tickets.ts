@@ -143,16 +143,6 @@ ticketsRouter.get("/fetch-by-reg", async (req, res) => {
     res.status(500).json({ success: false, error: "Failed to fetch participant" });
   }
 });
-        seatNumber: participant.seatNumber || null,
-        duo: duo && duo.length ? duo[0] : null,
-      },
-      qrCode: participant.qrData || null,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, error: "Failed to fetch participant" });
-  }
-});
 
 ticketsRouter.get("/events/:id/tickets", async (req, res) => {
   try {

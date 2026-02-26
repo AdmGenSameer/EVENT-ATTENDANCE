@@ -14,13 +14,15 @@ const multer_1 = __importDefault(require("multer"));
 const Ticket_1 = require("../db/models/Ticket");
 exports.ticketsRouter = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
-// GET /api/events/tickets/:regNo
-exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
+// GET /api/tickets/:regNo
+// Fetch ticket by registration number (path parameter)
+exports.ticketsRouter.get("/:regNo", async (req, res) => {
     try {
         const { regNo } = req.params;
         const participant = await Ticket_1.Ticket.findOne({
             registrationNo: regNo,
         }).lean();
+        console.log("Fetched participant for regNo:", regNo, participant);
         if (!participant) {
             return res.status(404).json({
                 success: false,
@@ -36,9 +38,6 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
         res.status(200).json({
             success: true,
             participant: {
-                _id: participant._id,
-                eventId: participant.eventId,
-                ticketCode: participant.ticketCode,
                 name: participant.name,
                 personalEmail: participant.personalEmail,
                 registrationNo: participant.registrationNo,
@@ -47,8 +46,7 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
                 checkedIn: participant.checkedIn,
                 checkedInAt: participant.checkedInAt || participant.checkInTime || null,
                 seatNumber: participant.seatNumber || null,
-                qrData: participant.qrData || null,
-                duo: duo && duo.length ? duo[0] : null, // if duo exists, send first
+                duo: duo && duo.length ? duo[0] : null,
             },
             qrCode: participant.qrData || null,
         });
@@ -59,6 +57,83 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
             success: false,
             error: "Failed to fetch participant",
         });
+    }
+});
+// GET /api/tickets/fetch?email=...
+// Fetch ticket by email
+exports.ticketsRouter.get("/fetch", async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email)
+            return res.status(400).json({ success: false, error: "Email required" });
+        const participant = await Ticket_1.Ticket.findOne({
+            personalEmail: email.toLowerCase().trim(),
+        }).lean();
+        if (!participant)
+            return res.status(404).json({ success: false, error: "Participant not found" });
+        const duo = participant.duoParticipants?.map(d => ({
+            participantNumber: d.participantNumber,
+            name: d.fullName,
+            status: d.status,
+        }));
+        res.json({
+            success: true,
+            participant: {
+                name: participant.name,
+                personalEmail: participant.personalEmail,
+                registrationNo: participant.registrationNo,
+                contactNo: participant.contactNo,
+                ticketType: participant.ticketType,
+                checkedIn: participant.checkedIn,
+                checkedInAt: participant.checkedInAt || participant.checkInTime || null,
+                seatNumber: participant.seatNumber || null,
+                duo: duo && duo.length ? duo[0] : null,
+            },
+            qrCode: participant.qrData || null,
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: "Failed to fetch participant" });
+    }
+});
+// GET /api/tickets/fetch-by-reg?regNo=...
+// Fetch ticket by registration number (query parameter)
+exports.ticketsRouter.get("/fetch-by-reg", async (req, res) => {
+    try {
+        const { regNo } = req.query;
+        if (!regNo)
+            return res.status(400).json({ success: false, error: "Registration number required" });
+        const participant = await Ticket_1.Ticket.findOne({
+            registrationNo: regNo.trim(),
+        }).lean();
+        if (!participant)
+            return res.status(404).json({ success: false, error: "Participant not found" });
+        const duo = participant.duoParticipants?.map(d => ({
+            participantNumber: d.participantNumber,
+            name: d.fullName,
+            status: d.status,
+        }));
+        res.json({
+            success: true,
+            participant: {
+                name: participant.name,
+                personalEmail: participant.personalEmail,
+                registrationNo: participant.registrationNo,
+                contactNo: participant.contactNo,
+                ticketType: participant.ticketType,
+                ticketCode: participant.ticketCode,
+                checkedIn: participant.checkedIn,
+                checkedInAt: participant.checkedInAt || participant.checkInTime || null,
+                seatNumber: participant.seatNumber || null,
+                duo: duo && duo.length ? duo[0] : null,
+            },
+            qrCode: participant.qrData || null,
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: "Failed to fetch participant" });
     }
 });
 exports.ticketsRouter.get("/events/:id/tickets", async (req, res) => {
@@ -199,6 +274,31 @@ exports.ticketsRouter.post("/events/:eventId/qr/generate-bulk", async (req, res)
         (0, logger_1.logWarn)("tickets:qr-bulk", "Bulk QR generation failed", error);
         res.status(500).json({
             error: "Bulk QR generation failed",
+            message: error instanceof Error ? error.message : "Unknown error",
+        });
+    }
+});
+/**
+ * POST /api/tickets/events/:eventId/qr/clear
+ * Clear QR data for all tickets in an event
+ */
+exports.ticketsRouter.post("/events/:eventId/qr/clear", async (req, res) => {
+    try {
+        const { eventId } = req.params;
+        if (!eventId) {
+            return res.status(400).json({ error: "Event ID is required" });
+        }
+        (0, logger_1.logInfo)("tickets:qr-clear", `Clearing QR data for event ${eventId}`);
+        const result = await qrService_1.qrService.clearEventQrData(eventId);
+        res.json({
+            success: true,
+            ...result,
+        });
+    }
+    catch (error) {
+        (0, logger_1.logWarn)("tickets:qr-clear", "Clear QR data failed", error);
+        res.status(500).json({
+            error: "Clear QR data failed",
             message: error instanceof Error ? error.message : "Unknown error",
         });
     }

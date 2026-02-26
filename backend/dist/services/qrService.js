@@ -123,7 +123,7 @@ exports.qrService = {
             }
             const payload = await exports.qrService.generateSecureQRPayload(ticket._id.toString(), event._id.toString(), ticket.ticketType, privateKey);
             const payloadJson = JSON.stringify(payload);
-            const qrData = Buffer.from(payloadJson).toString("base64");
+            const qrData = Buffer.from(payloadJson).toString("base64url");
             ticket.qrData = qrData;
             await ticket.save();
             return {
@@ -226,7 +226,7 @@ exports.qrService = {
                 try {
                     const payload = await exports.qrService.generateSecureQRPayload(ticket._id.toString(), eventId, ticket.ticketType, privateKey);
                     const payloadJson = JSON.stringify(payload);
-                    const qrData = Buffer.from(payloadJson).toString("base64");
+                    const qrData = Buffer.from(payloadJson).toString("base64url");
                     ticket.qrData = qrData;
                     await ticket.save();
                     results.generated += 1;
@@ -247,13 +247,28 @@ exports.qrService = {
         }
     },
     /**
+     * Clear QR data for all tickets in an event
+     */
+    async clearEventQrData(eventId) {
+        try {
+            const result = await Ticket_1.Ticket.updateMany({ eventId: new mongoose_1.Types.ObjectId(eventId) }, { $set: { qrData: null } });
+            return {
+                cleared: result.modifiedCount,
+            };
+        }
+        catch (error) {
+            (0, logger_1.logWarn)("qrService:clearEventQrData", "Failed to clear QR data", error);
+            throw error;
+        }
+    },
+    /**
      * Verify QR signature (for scanner app)
      * Public key downloaded to mobile and used for offline verification
      */
     async verifyQRSignature(qrDataBase64, publicKeyHex) {
         try {
             // Decode Base64
-            const payloadJson = Buffer.from(qrDataBase64, "base64").toString("utf-8");
+            const payloadJson = Buffer.from(qrDataBase64, "base64url").toString("utf-8");
             const payload = JSON.parse(payloadJson);
             // Extract signature
             const { sig, ...unsignedPayload } = payload;

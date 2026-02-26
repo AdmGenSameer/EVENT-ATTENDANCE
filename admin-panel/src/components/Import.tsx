@@ -2,7 +2,24 @@ import { useState } from "react";
 import { api } from "../api";
 import "../styles/import.css";
 
-const TICKET_TYPES = ["regular", "regular duo", "front row solo", "front row duo"];
+const TICKET_TYPES = [
+  "REGULAR - ₹499",
+  "BALCONY - ₹499",
+  "GUEST - ₹650",
+  "COUPLE - ₹1198",
+  "STUDENT - ₹950",
+  "CHILD - ₹1550",
+];
+
+// Map display names to actual ticket types for database
+const TICKET_TYPE_MAP: Record<string, string> = {
+  "REGULAR - ₹499": "REGULAR",
+  "BALCONY - ₹499": "BALCONY",
+  "GUEST - ₹650": "GUEST",
+  "COUPLE - ₹1198": "COUPLE",
+  "STUDENT - ₹950": "STUDENT",
+  "CHILD - ₹1550": "CHILD",
+};
 
 interface ImportResult {
   success: boolean;
@@ -39,7 +56,7 @@ export const Import = () => {
     email: "",
     registrationNo: "",
     contactNo: "",
-    ticketType: "regular",
+    ticketType: TICKET_TYPES[0],
   });
 
   const isDuoTicket = formData.ticketType.includes("duo");
@@ -54,11 +71,12 @@ export const Import = () => {
     setMessage(null);
 
     try {
+      const mappedTicketType = TICKET_TYPE_MAP[formData.ticketType] || formData.ticketType;
       const response = await api.post<any>("/tickets/add-participant", {
         eventId,
         name: formData.name,
         email: formData.email,
-        ticketType: formData.ticketType,
+        ticketType: mappedTicketType,
         ...(isDuoTicket && formData.duoName && formData.duoEmail ? {
           duo: {
             name: formData.duoName,
@@ -77,7 +95,7 @@ export const Import = () => {
           email: "",
           registrationNo: "",
           contactNo: "",
-          ticketType: "regular",
+          ticketType: TICKET_TYPES[0],
         });
       }
     } catch (error) {
