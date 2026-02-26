@@ -24,8 +24,22 @@ Uint8List _extractEd25519PublicKey(Uint8List spkiBytes) {
   final parser = ASN1Parser(spkiBytes);
   final topLevelSeq = parser.nextObject() as ASN1Sequence;
   final publicKeyBitString = topLevelSeq.elements?.last as ASN1BitString;
-  final keyBytes = publicKeyBitString.valueBytes();
-  return Uint8List.fromList(keyBytes);
+  
+  // BIT STRING format: first byte is number of unused bits, followed by the key
+  // For Ed25519, we need the next 32 bytes (skip the first unused bits byte)
+  final allBytes = publicKeyBitString.valueBytes();
+  
+  // Skip the first byte (unused bits indicator) and take the next 32 bytes
+  if (allBytes.length >= 33) {
+    return Uint8List.fromList(allBytes.sublist(1, 33));
+  }
+  
+  // Fallback: if it's exactly 32 bytes, use as-is
+  if (allBytes.length == 32) {
+    return Uint8List.fromList(allBytes);
+  }
+  
+  throw Exception("Invalid Ed25519 public key size: ${allBytes.length}");
 }
 
 Future<VerificationResult> verifyQrToken({
