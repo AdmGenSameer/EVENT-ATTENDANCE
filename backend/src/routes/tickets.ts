@@ -19,7 +19,8 @@ ticketsRouter.get("/:regNo", async (req, res) => {
     const { regNo } = req.params;
 
     const participant = await Ticket.findOne({
-      registrationNo: regNo,
+      //registrationNo: regNo,
+      personalEmail: regNo.toLowerCase().trim(),
     }).lean();
 
     if (!participant) {
