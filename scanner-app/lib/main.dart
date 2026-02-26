@@ -13,7 +13,7 @@ class EventQrScannerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppState()..enableDemoMode(),
+      create: (_) => AppState()..initialize(),
       child: MaterialApp(
         title: "EventQR Scanner",
         theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),

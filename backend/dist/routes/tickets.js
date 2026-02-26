@@ -74,6 +74,8 @@ exports.ticketsRouter.get("/events/:id/tickets", async (req, res) => {
             createdAt: ticket.createdAt,
             qrData: ticket.qrData || null,
             seatNumber: ticket.seatNumber || null,
+            registrationNo: ticket.registrationNo || null,
+            contactNo: ticket.contactNo || null,
         }));
         res.json({ tickets: normalized });
     }

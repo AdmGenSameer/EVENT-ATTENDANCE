@@ -18,7 +18,7 @@ type QrPreviewProps = {
 };
 
 export const QrPreview = ({ ticket, onClose }: QrPreviewProps) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   const token = useMemo(() => ticket.qrData || "", [ticket.qrData]);
 

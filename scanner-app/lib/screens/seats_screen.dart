@@ -33,7 +33,7 @@ class _SeatsScreenState extends State<SeatsScreen> {
     },
     'balcony': {
       'prefix': 'B',
-      'rows': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+      'rows': ['A', 'B', 'C', 'D'],
       'seatsPerRow': 15,
     },
   };
@@ -256,7 +256,7 @@ class _SeatsScreenState extends State<SeatsScreen> {
                   const SizedBox(height: 16),
                   _buildSection('front', 'Front Section (FA-FE)'),
                   _buildSection('rear', 'Rear Section (RA-RY)'),
-                  _buildSection('balcony', 'Balcony Section (BA-BJ)'),
+                  _buildSection('balcony', 'Balcony Section (BA-BD)'),
                 ],
               ),
             ),

@@ -5,6 +5,7 @@ import 'home_screen.dart';
 import 'history_screen.dart';
 import 'seats_screen.dart';
 import 'scanner_screen_complete.dart';
+import 'setup_screen_new.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -35,30 +36,7 @@ class _AppShellState extends State<AppShell> {
     }
 
     if (!appState.isSetup) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Xenith 26 Scanner')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
-                const SizedBox(height: 16),
-                const Text(
-                  'Unable to sync event data. Check connection and retry.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => appState.bootstrapFixedEvent(),
-                  child: const Text('Retry Sync'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return const SetupScreen();
     }
 
     final screens = [

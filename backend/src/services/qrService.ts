@@ -4,7 +4,6 @@ import { Event } from "../db/models/Event";
 import { Ticket } from "../db/models/Ticket";
 import { logInfo, logWarn } from "../utils/logger";
 import { Types } from "mongoose";
-import { Participants } from "../db/models/ParticipantsModel";
 
 /**
  * QR Payload Structure (Secure Ed25519 signed)
@@ -27,10 +26,9 @@ import { Participants } from "../db/models/ParticipantsModel";
 //   sig?: string;
 // }
 
-//updated QRPayload to replace tid with pid for participant id instead of ticket id
 interface QRPayload {
   v: number;
-  pid: string;   
+  tid: string;
   eid: string;
   exp: number;
   cat: string;
@@ -67,8 +65,7 @@ export const qrService = {
    * Create secure QR payload and sign with Ed25519
    */
   async generateSecureQRPayload(
-    // ticketId: string,
-    participantId: string,
+    ticketId: string,
     eventId: string,
     category: string,
     privateKeyHex: string,
@@ -80,8 +77,7 @@ export const qrService = {
       // Create unsigned payload
       const unsignedPayload: Omit<QRPayload, "sig"> = {
         v: 1,
-        // tid: ticketId,
-        pid: participantId,
+        tid: ticketId,
         eid: eventId,
         exp: expiry,
         cat: category,
@@ -158,17 +154,16 @@ export const qrService = {
   //   }
   // },
 
-  //updated generate single qr to work with participants instead of tickets
-  async generateSingleQR(participantId: string) {
+  async generateSingleQR(ticketId: string) {
     try {
-      logInfo("qrService:generateSingle", `Generating QR for participant ${participantId}`);
+      logInfo("qrService:generateSingle", `Generating QR for ticket ${ticketId}`);
 
-      const participant = await Participants.findById(participantId);
-      if (!participant) {
-        throw new Error("Participant not found");
+      const ticket = await Ticket.findById(ticketId);
+      if (!ticket) {
+        throw new Error("Ticket not found");
       }
 
-      const event = await Event.findById(participant.eventId).select('+qrPrivateKey');
+      const event = await Event.findById(ticket.eventId).select('+qrPrivateKey');
       if (!event) {
         throw new Error("Event not found");
       }
@@ -179,22 +174,22 @@ export const qrService = {
       }
 
       const payload = await qrService.generateSecureQRPayload(
-        participant._id.toString(),
+        ticket._id.toString(),
         event._id.toString(),
-        participant.ticketType || "REGULAR_SINGLE",
+        ticket.ticketType,
         privateKey
       );
 
       const payloadJson = JSON.stringify(payload);
       const qrData = Buffer.from(payloadJson).toString("base64");
 
-      participant.qrData = qrData;
-      await participant.save();
+      ticket.qrData = qrData;
+      await ticket.save();
 
       return {
         success: true,
-        participantId: participant._id,
-        registrationNumber: participant.registrationNumber,
+        ticketId: ticket._id,
+        ticketCode: ticket.ticketCode,
         qrData,
         payload,
       };
@@ -329,38 +324,6 @@ export const qrService = {
             `${ticket.name}: ${error instanceof Error ? error.message : "unknown error"}`
           );
           logWarn("qrService:generateBulk", `Failed for ${ticket.name}`, error);
-        }
-      }
-
-      // Also generate for participants
-      const participants = await Participants.find({
-        eventId: new Types.ObjectId(eventId),
-        qrData: { $in: [null, ""] },
-      });
-
-      for (const participant of participants) {
-        try {
-          const payload = await qrService.generateSecureQRPayload(
-            participant._id.toString(),
-            eventId,
-            participant.ticketType || "REGULAR_SINGLE",
-            privateKey
-          );
-
-          const payloadJson = JSON.stringify(payload);
-          const qrData = Buffer.from(payloadJson).toString("base64");
-
-          participant.qrData = qrData;
-          await participant.save();
-
-          results.generated += 1;
-          logInfo("qrService:generateBulk", `Generated QR for ${participant.name}`);
-        } catch (error) {
-          results.failed += 1;
-          results.errors.push(
-            `${participant.name}: ${error instanceof Error ? error.message : "unknown error"}`
-          );
-          logWarn("qrService:generateBulk", `Failed for ${participant.name}`, error);
         }
       }
 

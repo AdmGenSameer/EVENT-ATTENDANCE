@@ -49,6 +49,8 @@ export type TicketRecord = {
   createdAt: string;
   qrData?: string | null;
   seatNumber?: string | null;
+  registrationNo?: string | null;
+  contactNo?: string | null;
 };
 
 export type SeatStatus = "available" | "assigned" | "blocked";

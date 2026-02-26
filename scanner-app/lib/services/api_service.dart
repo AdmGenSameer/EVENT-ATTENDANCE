@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
+import '../models/event.dart';
 
 class ApiService {
   static const String defaultBaseUrl = 'http://10.0.2.2:4000/api'; // Android emulator localhost
@@ -35,6 +38,18 @@ class ApiService {
       debugPrint('[ApiService] Error fetching event: $e');
       rethrow;
     }
+  }
+
+  /// Fetch event details and map to Event model (setup helper)
+  Future<Event> getEventBySlug(String slug) async {
+    final data = await fetchEventBySlug(slug);
+    return Event(
+      id: data['eventId'] as String,
+      name: data['name'] as String,
+      slug: data['slug'] as String,
+      publicKey: data['publicKey'] as String,
+      lastSynced: DateTime.now().toIso8601String(),
+    );
   }
 
   /// Download all tickets for an event
@@ -168,6 +183,34 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('[ApiService] Error fetching blocked seats: $e');
+      rethrow;
+    }
+  }
+
+  // Fetch ticket by registration number
+  Future<Map<String, dynamic>> fetchTicketByRegNo(String regNo) async {
+    try {
+      debugPrint('[ApiService] Fetching ticket by registration number: $regNo');
+      final url = Uri.parse('$baseUrl/events/tickets/$regNo');
+      
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        debugPrint('[ApiService] Found ticket for registration: $regNo');
+        return data;
+      } else if (response.statusCode == 404) {
+        throw Exception('No ticket found for registration number: $regNo');
+      } else {
+        throw Exception('Failed to fetch ticket: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('[ApiService] Error fetching ticket by regNo: $e');
       rethrow;
     }
   }

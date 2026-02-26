@@ -9,7 +9,7 @@ interface SeatingArrangementProps {
 const SEAT_CONFIG = {
   front: { prefix: "F", rows: ["A", "B", "C", "D", "E"], seatsPerRow: 15 },
   rear: { prefix: "R", rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y"], seatsPerRow: 15 },
-  balcony: { prefix: "B", rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"], seatsPerRow: 15 },
+  balcony: { prefix: "B", rows: ["A", "B", "C", "D"], seatsPerRow: 15 },
 };
 
 export const SeatingArrangement = ({ eventId }: SeatingArrangementProps) => {

@@ -12,6 +12,7 @@ export const Participants = ({ eventId }: ParticipantsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "checked-in" | "pending">("all");
+  const [selectedTicket, setSelectedTicket] = useState<TicketRecord | null>(null);
 
   const loadTickets = async () => {
     try {
@@ -150,7 +151,12 @@ export const Participants = ({ eventId }: ParticipantsProps) => {
                 </tr>
               ) : (
                 filteredTickets.map((ticket) => (
-                  <tr key={ticket.id} className={ticket.checkedIn ? "checked-in" : ""}>
+                  <tr 
+                    key={ticket.id} 
+                    className={ticket.checkedIn ? "checked-in" : ""}
+                    onClick={() => setSelectedTicket(ticket)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>
                       <div className={`status-indicator ${ticket.checkedIn ? "success" : "pending"}`}>
                         {ticket.checkedIn ? (
@@ -181,6 +187,162 @@ export const Participants = ({ eventId }: ParticipantsProps) => {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {selectedTicket && (
+        <div className="modal-overlay" onClick={() => setSelectedTicket(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Participant Details</h2>
+              <button className="modal-close" onClick={() => setSelectedTicket(null)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="detail-section">
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span>Name</span>
+                  </div>
+                  <div className="detail-value">{selectedTicket.name}</div>
+                </div>
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>Email</span>
+                  </div>
+                  <div className="detail-value">{selectedTicket.personalEmail}</div>
+                </div>
+
+                {selectedTicket.registrationNo && (
+                  <div className="detail-row">
+                    <div className="detail-label">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                      </svg>
+                      <span>Registration No.</span>
+                    </div>
+                    <div className="detail-value">{selectedTicket.registrationNo}</div>
+                  </div>
+                )}
+
+                {selectedTicket.contactNo && (
+                  <div className="detail-row">
+                    <div className="detail-label">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      <span>Contact No.</span>
+                    </div>
+                    <div className="detail-value">{selectedTicket.contactNo}</div>
+                  </div>
+                )}
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                    </svg>
+                    <span>Ticket Code</span>
+                  </div>
+                  <div className="detail-value"><code>{selectedTicket.ticketCode}</code></div>
+                </div>
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span>Ticket Type</span>
+                  </div>
+                  <div className="detail-value">
+                    <span className="ticket-type-badge">{selectedTicket.ticketType}</span>
+                  </div>
+                </div>
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Seat Number</span>
+                  </div>
+                  <div className="detail-value">
+                    {selectedTicket.seatNumber ? (
+                      <strong>{selectedTicket.seatNumber}</strong>
+                    ) : (
+                      <span className="text-muted">Not assigned</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Check-in Status</span>
+                  </div>
+                  <div className="detail-value">
+                    {selectedTicket.checkedIn ? (
+                      <span className="status-badge success">✓ Checked In</span>
+                    ) : (
+                      <span className="status-badge pending">⏱ Pending</span>
+                    )}
+                  </div>
+                </div>
+
+                {selectedTicket.checkedInAt && (
+                  <div className="detail-row">
+                    <div className="detail-label">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Checked In At</span>
+                    </div>
+                    <div className="detail-value">
+                      {new Date(selectedTicket.checkedInAt).toLocaleString("en-US", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="detail-row">
+                  <div className="detail-label">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Created At</span>
+                  </div>
+                  <div className="detail-value">
+                    {new Date(selectedTicket.createdAt).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setSelectedTicket(null)}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

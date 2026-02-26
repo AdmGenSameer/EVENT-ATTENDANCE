@@ -45,7 +45,7 @@ const SEAT_CONFIG = {
         rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y"],
         seatsPerRow: 15,
     },
-    BALCONY: { prefix: "B", rows: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"], seatsPerRow: 15 },
+    BALCONY: { prefix: "B", rows: ["A", "B", "C", "D"], seatsPerRow: 15 },
 };
 class SeatService {
     async initializeSeatsForEvent(eventId) {

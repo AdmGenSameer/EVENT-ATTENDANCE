@@ -452,6 +452,128 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
     );
   }
 
+  void _showEmergencyEntry() {
+    final TextEditingController regNoController = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.emergency, color: Colors.red[700]),
+                const SizedBox(width: 8),
+                const Text('Emergency Entry'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter registration number for manual check-in',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: regNoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Registration Number',
+                    hintText: 'e.g., REG001',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.numbers),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  autofocus: true,
+                  enabled: !isLoading,
+                ),
+                if (isLoading) ...[
+                  const SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final regNo = regNoController.text.trim();
+                        if (regNo.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a registration number'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => isLoading = true);
+
+                        try {
+                          // Fetch ticket from backend
+                          final response = await ApiService().fetchTicketByRegNo(regNo);
+                          
+                          if (!response['success'] || response['participant'] == null) {
+                            throw Exception('Ticket not found');
+                          }
+
+                          final participant = response['participant'];
+                          
+                          // Convert to Ticket object
+                          final ticket = Ticket(
+                            id: participant['_id'] ?? '',
+                            eventId: participant['eventId'] ?? '',
+                            ticketCode: participant['ticketCode'] ?? '',
+                            name: participant['name'] ?? '',
+                            personalEmail: participant['personalEmail'],
+                            qrSignature: participant['qrData'] ?? '',
+                            category: participant['ticketType'],
+                            seatCode: participant['seatNumber'],
+                            checkedIn: participant['checkedIn'] ?? false,
+                            checkedInAt: participant['checkedInAt'],
+                          );
+
+                          if (mounted) {
+                            Navigator.pop(context); // Close dialog
+                            await _processManualCheckIn(ticket);
+                          }
+                        } catch (e) {
+                          setDialogState(() => isLoading = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e.toString().contains('No ticket found')
+                                      ? 'No ticket found for registration: $regNo'
+                                      : 'Error: ${e.toString()}',
+                                ),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[700],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Check In'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _processManualCheckIn(Ticket ticket) async {
     Navigator.pop(context); // Close search sheet
 
@@ -741,6 +863,14 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showEmergencyEntry,
+        backgroundColor: Colors.red[700],
+        icon: const Icon(Icons.emergency),
+        label: const Text('Emergency Entry'),
+        tooltip: 'Manual entry by Registration Number',
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
