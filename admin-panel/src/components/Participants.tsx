@@ -39,7 +39,8 @@ export const Participants = ({ eventId }: ParticipantsProps) => {
     const matchesSearch =
       ticket.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.personalEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.ticketCode.toLowerCase().includes(searchTerm.toLowerCase());
+      ticket.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.registrationNo || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesFilter =
       filterStatus === "all" ||

@@ -77,7 +77,7 @@ export const importService = {
           // Primary participant
           const primaryName = (row["NAME"] || "").trim();
           const primaryEmail = (row["COLLEGE EMAIL ID"] || row["College Email Id"] || "").trim();
-          const registrationNo = (row["REGISTRATION NO."] || row["Registration No."] || "").trim();
+          const registrationNo = (row["REGISTRATION NO."] || row["Registration No."] || "").trim().toUpperCase();
           const contactNo = (row["CONTACT NO."] || row["Contact No."] || "").trim();
 
           if (!primaryName || !primaryEmail) {

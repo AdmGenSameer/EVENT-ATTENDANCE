@@ -13,56 +13,12 @@ export const ticketsRouter = Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// GET /api/tickets/:regNo
-// Fetch ticket by registration number (path parameter)
-ticketsRouter.get("/:regNo", async (req, res) => {
-  try {
-    let { regNo } = req.params;
-    const participant = await Ticket.findOne({
-      registrationNo: { $regex: new RegExp(`^${regNo}$`, "i") },
-    }).lean();
-    console.log("Fetched participant for regNo:", regNo, participant);
-
-    if (!participant) {
-      return res.status(404).json({
-        success: false,
-        error: "Participant not found",
-      });
-    }
-
-    // Map duo participants
-    const duo = participant.duoParticipants?.map(d => ({
-      participantNumber: d.participantNumber,
-      name: d.fullName,
-      status: d.status,
-    }));
-
-    res.status(200).json({
-      success: true,
-      participant: {
-        name: participant.name,
-        personalEmail: participant.personalEmail,
-        registrationNo: participant.registrationNo,
-        contactNo: participant.contactNo,
-        ticketType: participant.ticketType,
-        checkedIn: participant.checkedIn,
-        checkedInAt: participant.checkedInAt || participant.checkInTime || null,
-        seatNumber: participant.seatNumber || null,
-        duo: duo && duo.length ? duo[0] : null,
-      },
-      qrCode: participant.qrData || null,
-    });
-  } catch (error) {
-    console.error("Error fetching participant:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch participant",
-    });
-  }
-});
+// Helper to escape regex special characters in user input
+const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // GET /api/tickets/fetch?email=...
 // Fetch ticket by email
+// NOTE: This route MUST be defined BEFORE /:regNo to avoid being shadowed
 ticketsRouter.get("/fetch", async (req, res) => {
   try {
     const { email } = req.query;
@@ -103,13 +59,15 @@ ticketsRouter.get("/fetch", async (req, res) => {
 
 // GET /api/tickets/fetch-by-reg?regNo=...
 // Fetch ticket by registration number (query parameter)
+// NOTE: This route MUST be defined BEFORE /:regNo to avoid being shadowed
 ticketsRouter.get("/fetch-by-reg", async (req, res) => {
   try {
     const { regNo, eventId } = req.query;
     if (!regNo) return res.status(400).json({ success: false, error: "Registration number required" });
 
+    const trimmed = (regNo as string).trim();
     const query: any = {
-      registrationNo: (regNo as string).trim(),
+      registrationNo: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") },
     };
 
     // If eventId is provided, filter by event
@@ -146,6 +104,56 @@ ticketsRouter.get("/fetch-by-reg", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, error: "Failed to fetch participant" });
+  }
+});
+
+// GET /api/tickets/:regNo
+// Fetch ticket by registration number (path parameter)
+// NOTE: This route MUST be defined AFTER /fetch and /fetch-by-reg to avoid shadowing them
+ticketsRouter.get("/:regNo", async (req, res) => {
+  try {
+    let { regNo } = req.params;
+    const escaped = escapeRegex(regNo);
+    const participant = await Ticket.findOne({
+      registrationNo: { $regex: new RegExp(`^${escaped}$`, "i") },
+    }).lean();
+    console.log("Fetched participant for regNo:", regNo, participant);
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        error: "Participant not found",
+      });
+    }
+
+    // Map duo participants
+    const duo = participant.duoParticipants?.map(d => ({
+      participantNumber: d.participantNumber,
+      name: d.fullName,
+      status: d.status,
+    }));
+
+    res.status(200).json({
+      success: true,
+      participant: {
+        name: participant.name,
+        personalEmail: participant.personalEmail,
+        registrationNo: participant.registrationNo,
+        contactNo: participant.contactNo,
+        ticketType: participant.ticketType,
+        checkedIn: participant.checkedIn,
+        checkedInAt: participant.checkedInAt || participant.checkInTime || null,
+        seatNumber: participant.seatNumber || null,
+        duo: duo && duo.length ? duo[0] : null,
+      },
+      qrCode: participant.qrData || null,
+    });
+  } catch (error) {
+    console.error("Error fetching participant:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch participant",
+    });
   }
 });
 
