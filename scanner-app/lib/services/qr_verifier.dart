@@ -34,29 +34,45 @@ Future<VerificationResult> verifyQrToken({
   int? nowEpoch,
 }) async {
   try {
-    debugPrint("[verifyQrToken] start, token: $token");
+    debugPrint("[verifyQrToken] start, token length: ${token.length}");
     final payload = QrPayload.fromToken(token);
-    debugPrint("[verifyQrToken] payload parsed: tid=${payload.ticketId}, sig=${payload.signature.substring(0, 20)}...");
+    debugPrint("[verifyQrToken] payload parsed successfully");
+    debugPrint("[verifyQrToken]   tid: ${payload.ticketId}");
+    debugPrint("[verifyQrToken]   eid: ${payload.eventId}");
+    debugPrint("[verifyQrToken]   exp: ${payload.exp}");
+    debugPrint("[verifyQrToken]   sig length: ${payload.signature.length}, first 30 chars: ${payload.signature.substring(0, 30).replaceAll(RegExp(r'[^a-zA-Z0-9/_\-=+]'), '?')}");
+    
     if (payload.exp != null && nowEpoch != null && payload.exp! < nowEpoch) {
       return (isValid: false, reason: "expired", payload: payload);
     }
 
     final unsignedJson = jsonEncode(payload.unsignedPayload());
+    debugPrint("[verifyQrToken] unsigned payload: $unsignedJson");
+    
     final message = Uint8List.fromList(utf8.encode(unsignedJson));
+    debugPrint("[verifyQrToken] message bytes created, length: ${message.length}");
+    
     final signatureBytes = base64Url.decode(payload.signature);
+    debugPrint("[verifyQrToken] signature decoded, length: ${signatureBytes.length}");
 
     final spkiBytes = _decodePem(publicKeyPem);
+    debugPrint("[verifyQrToken] public key decoded, length: ${spkiBytes.length}");
+    
     final publicKeyBytes = _extractEd25519PublicKey(spkiBytes);
+    debugPrint("[verifyQrToken] Ed25519 public key extracted, length: ${publicKeyBytes.length}");
 
     final algorithm = Ed25519();
     final publicKey = SimplePublicKey(publicKeyBytes, type: KeyPairType.ed25519);
     final signature = Signature(signatureBytes, publicKey: publicKey);
 
     final ok = await algorithm.verify(message, signature: signature);
-    debugPrint("[verifyQrToken] verify result: $ok");
+    debugPrint("[verifyQrToken] signature verification result: $ok");
     return (isValid: ok, reason: ok ? null : "invalid_signature", payload: payload);
   } catch (error) {
-    debugPrint("[verifyQrToken] failed: $error");
+    debugPrint("[verifyQrToken] error during verification: $error");
+    if (error is FormatException) {
+      debugPrint("[verifyQrToken] FormatException - likely token encoding issue");
+    }
     return (isValid: false, reason: "invalid_token", payload: null);
   }
 }
