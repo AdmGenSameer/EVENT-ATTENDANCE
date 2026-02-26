@@ -18,10 +18,20 @@ const upload = multer({ storage: multer.memoryStorage() });
 ticketsRouter.get("/:regNo", async (req, res) => {
   try {
     let { regNo } = req.params;
-    const participant = await Ticket.findOne({
-      registrationNo: { $regex: new RegExp(`^${regNo}$`, "i") },
-    }).lean();
-    console.log("Fetched participant for regNo:", regNo, participant);
+    const { eventId } = req.query;
+    
+    const query: any = {
+      registrationNo: { $regex: new RegExp(`^${regNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+    };
+
+    // If eventId is provided, filter by event
+    if (eventId) {
+      query.eventId = eventId;
+    }
+
+    console.log("Fetching participant for regNo:", regNo, "with query:", query);
+    const participant = await Ticket.findOne(query).lean();
+    console.log("Fetched participant:", participant);
 
     if (!participant) {
       return res.status(404).json({
