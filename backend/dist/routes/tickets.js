@@ -101,12 +101,17 @@ exports.ticketsRouter.get("/fetch", async (req, res) => {
 // Fetch ticket by registration number (query parameter)
 exports.ticketsRouter.get("/fetch-by-reg", async (req, res) => {
     try {
-        const { regNo } = req.query;
+        const { regNo, eventId } = req.query;
         if (!regNo)
             return res.status(400).json({ success: false, error: "Registration number required" });
-        const participant = await Ticket_1.Ticket.findOne({
+        const query = {
             registrationNo: regNo.trim(),
-        }).lean();
+        };
+        // If eventId is provided, filter by event
+        if (eventId) {
+            query.eventId = eventId;
+        }
+        const participant = await Ticket_1.Ticket.findOne(query).lean();
         if (!participant)
             return res.status(404).json({ success: false, error: "Participant not found" });
         const duo = participant.duoParticipants?.map(d => ({
