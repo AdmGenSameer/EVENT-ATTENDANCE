@@ -89,11 +89,11 @@ export const qrService = {
       const messageBytes = Buffer.from(payloadJson, "utf-8");
 
       const signature = nacl.sign.detached(messageBytes, privateKeyBuffer);
-      const signatureHex = Buffer.from(signature).toString("hex");
+      const signatureBase64Url = Buffer.from(signature).toString("base64url");
 
       return {
         ...unsignedPayload,
-        sig: signatureHex,
+        sig: signatureBase64Url,
       };
     } catch (error) {
       logWarn("qrService:generatePayload", "Failed to generate QR payload", error);
@@ -363,7 +363,7 @@ export const qrService = {
 
       // Verify signature with Ed25519
       const publicKeyBuffer = Buffer.from(publicKeyHex, "hex");
-      const signatureBuffer = Buffer.from(sig, "hex");
+      const signatureBuffer = Buffer.from(sig, "base64url");
 
       const isValid = nacl.sign.detached.verify(messageBytes, signatureBuffer, publicKeyBuffer);
 

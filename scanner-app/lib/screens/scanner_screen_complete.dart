@@ -50,6 +50,7 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
     _seatService = SeatAllocationService(dbService: _dbService);
     _startBackgroundTasks();
     _loadStats();
+    _verifyTicketsAvailable();
   }
 
   @override
@@ -103,6 +104,23 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
       }
     } catch (e) {
       debugPrint('[Scanner] Status update failed: $e');
+    }
+  }
+
+  Future<void> _verifyTicketsAvailable() async {
+    try {
+      final appState = context.read<AppState>();
+      if (appState.currentEvent == null) return;
+
+      final total = await _dbService.getTotalTicketCount(appState.currentEvent!.id);
+      if (total == 0 && mounted) {
+        setState(() {
+          _status = 'No tickets synced. Sync from setup first.';
+          _statusColor = Colors.red;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Scanner] Verify tickets failed: $e');
     }
   }
 
@@ -863,14 +881,6 @@ class _ScannerScreenNewState extends State<ScannerScreenNew> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showEmergencyEntry,
-        backgroundColor: Colors.red[700],
-        icon: const Icon(Icons.emergency),
-        label: const Text('Emergency Entry'),
-        tooltip: 'Manual entry by Registration Number',
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 

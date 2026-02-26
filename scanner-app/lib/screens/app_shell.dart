@@ -4,6 +4,7 @@ import '../services/app_state.dart';
 import 'home_screen.dart';
 import 'history_screen.dart';
 import 'seats_screen.dart';
+import 'ticket_sync_screen.dart';
 import 'scanner_screen_complete.dart';
 import 'setup_screen_new.dart';
 
@@ -43,6 +44,7 @@ class _AppShellState extends State<AppShell> {
       const HomeScreen(),
       const HistoryScreen(),
       const SeatsScreen(),
+      const TicketSyncScreen(),
       const ScannerScreenNew(),
     ];
 
@@ -97,7 +99,7 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateTo(3),
+        onPressed: () => _navigateTo(4),
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.qr_code_scanner),
       ),
@@ -135,10 +137,10 @@ class _AppShellState extends State<AppShell> {
             IconButton(
               onPressed: () => _navigateTo(3),
               icon: Icon(
-                Icons.qr_code,
+                Icons.confirmation_number,
                 color: _currentIndex == 3 ? Theme.of(context).colorScheme.primary : Colors.grey,
               ),
-              tooltip: 'Scan',
+              tooltip: 'Tickets',
             ),
           ],
         ),
