@@ -181,7 +181,7 @@ export const qrService = {
       );
 
       const payloadJson = JSON.stringify(payload);
-      const qrData = Buffer.from(payloadJson).toString("base64");
+      const qrData = Buffer.from(payloadJson).toString("base64url");
 
       ticket.qrData = qrData;
       await ticket.save();
@@ -311,7 +311,7 @@ export const qrService = {
           );
 
           const payloadJson = JSON.stringify(payload);
-          const qrData = Buffer.from(payloadJson).toString("base64");
+          const qrData = Buffer.from(payloadJson).toString("base64url");
 
           ticket.qrData = qrData;
           await ticket.save();
@@ -367,7 +367,7 @@ export const qrService = {
   ): Promise<{ valid: boolean; payload?: QRPayload; error?: string }> {
     try {
       // Decode Base64
-      const payloadJson = Buffer.from(qrDataBase64, "base64").toString("utf-8");
+      const payloadJson = Buffer.from(qrDataBase64, "base64url").toString("utf-8");
       const payload: QRPayload = JSON.parse(payloadJson);
 
       // Extract signature
