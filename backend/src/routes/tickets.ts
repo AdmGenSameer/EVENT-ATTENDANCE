@@ -14,30 +14,25 @@ export const ticketsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // GET /api/events/tickets/:regNo
-ticketsRouter.get("/:regNo", async (req, res) => {
+// GET /api/tickets/events/tickets/fetch?email=...
+ticketsRouter.get("/fetch", async (req, res) => {
   try {
-    const { regNo } = req.params;
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, error: "Email required" });
 
     const participant = await Ticket.findOne({
-      //registrationNo: regNo,
-      personalEmail: regNo.toLowerCase().trim(),
+      personalEmail: (email as string).toLowerCase().trim(),
     }).lean();
 
-    if (!participant) {
-      return res.status(404).json({
-        success: false,
-        error: "Participant not found",
-      });
-    }
+    if (!participant) return res.status(404).json({ success: false, error: "Participant not found" });
 
-    // Map duo participants
     const duo = participant.duoParticipants?.map(d => ({
       participantNumber: d.participantNumber,
       name: d.fullName,
       status: d.status,
     }));
 
-    res.status(200).json({
+    res.json({
       success: true,
       participant: {
         name: participant.name,
@@ -48,16 +43,13 @@ ticketsRouter.get("/:regNo", async (req, res) => {
         checkedIn: participant.checkedIn,
         checkedInAt: participant.checkedInAt || participant.checkInTime || null,
         seatNumber: participant.seatNumber || null,
-        duo: duo && duo.length ? duo[0] : null, // if duo exists, send first
+        duo: duo && duo.length ? duo[0] : null,
       },
       qrCode: participant.qrData || null,
     });
   } catch (error) {
-    console.error("Error fetching participant:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch participant",
-    });
+    console.error(error);
+    res.status(500).json({ success: false, error: "Failed to fetch participant" });
   }
 });
 
