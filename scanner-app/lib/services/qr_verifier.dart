@@ -52,7 +52,15 @@ Future<VerificationResult> verifyQrToken({
     final message = Uint8List.fromList(utf8.encode(unsignedJson));
     debugPrint("[verifyQrToken] message bytes created, length: ${message.length}");
     
-    final signatureBytes = base64Url.decode(payload.signature);
+    // Add padding to base64url signature if needed
+    String paddedSignature = payload.signature;
+    final remainder = payload.signature.length % 4;
+    if (remainder != 0) {
+      paddedSignature += '=' * (4 - remainder);
+      debugPrint("[verifyQrToken] added ${4 - remainder} padding characters");
+    }
+    
+    final signatureBytes = base64Url.decode(paddedSignature);
     debugPrint("[verifyQrToken] signature decoded, length: ${signatureBytes.length}");
 
     final spkiBytes = _decodePem(publicKeyPem);
