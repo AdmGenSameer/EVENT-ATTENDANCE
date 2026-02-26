@@ -338,6 +338,25 @@ export const qrService = {
       throw error;
     }
   },
+
+  /**
+   * Clear QR data for all tickets in an event
+   */
+  async clearEventQrData(eventId: string) {
+    try {
+      const result = await Ticket.updateMany(
+        { eventId: new Types.ObjectId(eventId) },
+        { $set: { qrData: null } }
+      );
+
+      return {
+        cleared: result.modifiedCount,
+      };
+    } catch (error) {
+      logWarn("qrService:clearEventQrData", "Failed to clear QR data", error);
+      throw error;
+    }
+  },
   /**
    * Verify QR signature (for scanner app)
    * Public key downloaded to mobile and used for offline verification

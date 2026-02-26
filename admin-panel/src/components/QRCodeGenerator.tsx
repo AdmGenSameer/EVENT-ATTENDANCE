@@ -36,6 +36,7 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
   const [generatingTicketId, setGeneratingTicketId] = useState<string | null>(null);
   const [previewQR, setPreviewQR] = useState<{ ticketCode: string; qrData: string } | null>(null);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     if (eventId) {
@@ -157,6 +158,55 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearQrData = async () => {
+    if (!eventId) {
+      alert('No event selected');
+      return;
+    }
+
+    const confirmClear = window.confirm(
+      'This will delete all QR data for this event. You will need to regenerate QRs. Continue?'
+    );
+    if (!confirmClear) return;
+
+    try {
+      setIsClearing(true);
+      setResult(null);
+      setPreviewQR(null);
+
+      const response = await fetch(`${API_BASE}/tickets/events/${eventId}/qr/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json') ? await response.json() : null;
+
+      if (!response.ok) {
+        setResult({
+          success: false,
+          message: data?.error || 'Failed to clear QR data',
+        });
+        return;
+      }
+
+      setResult({
+        success: true,
+        message: `Cleared QR data for ${data?.cleared ?? 0} tickets`,
+      });
+
+      loadTickets();
+    } catch (error) {
+      console.error('Error clearing QR data:', error);
+      setResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to clear QR data',
+      });
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -309,10 +359,18 @@ export function QRCodeGenerator({ eventId }: QRCodeGeneratorProps) {
 
           <button
             onClick={handleGenerateBulk}
-            disabled={loading || tickets.length === 0}
+            disabled={loading || isClearing || tickets.length === 0}
             className="btn btn-primary btn-large"
           >
             {loading ? 'Generating in progress...' : 'Generate All QRs'}
+          </button>
+
+          <button
+            onClick={handleClearQrData}
+            disabled={loading || isClearing || tickets.length === 0}
+            className="btn btn-danger btn-large"
+          >
+            {isClearing ? 'Clearing QR data...' : 'Clear All QR Data'}
           </button>
 
           {loading && bulkProgress.total > 0 && (

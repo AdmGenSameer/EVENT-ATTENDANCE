@@ -218,6 +218,34 @@ ticketsRouter.post("/events/:eventId/qr/generate-bulk", async (req, res) => {
 });
 
 /**
+ * POST /api/tickets/events/:eventId/qr/clear
+ * Clear QR data for all tickets in an event
+ */
+ticketsRouter.post("/events/:eventId/qr/clear", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    if (!eventId) {
+      return res.status(400).json({ error: "Event ID is required" });
+    }
+
+    logInfo("tickets:qr-clear", `Clearing QR data for event ${eventId}`);
+
+    const result = await qrService.clearEventQrData(eventId);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    logWarn("tickets:qr-clear", "Clear QR data failed", error);
+    res.status(500).json({
+      error: "Clear QR data failed",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
  * GET /api/events/:id/qr/public-key
  * Get the event's public key for QR verification
  * Used by scanner app to verify QR signatures offline
