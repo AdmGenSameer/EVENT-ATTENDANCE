@@ -9,7 +9,6 @@ const Event_1 = require("../db/models/Event");
 const Ticket_1 = require("../db/models/Ticket");
 const logger_1 = require("../utils/logger");
 const mongoose_1 = require("mongoose");
-const ParticipantsModel_1 = require("../db/models/ParticipantsModel");
 exports.qrService = {
     /**
      * Generate Ed25519 keypair for an event
@@ -36,16 +35,13 @@ exports.qrService = {
     /**
      * Create secure QR payload and sign with Ed25519
      */
-    async generateSecureQRPayload(
-    // ticketId: string,
-    participantId, eventId, category, privateKeyHex, expiryDays = 365) {
+    async generateSecureQRPayload(ticketId, eventId, category, privateKeyHex, expiryDays = 365) {
         try {
             const expiry = Math.floor(Date.now() / 1000) + expiryDays * 24 * 60 * 60;
             // Create unsigned payload
             const unsignedPayload = {
                 v: 1,
-                // tid: ticketId,
-                pid: participantId,
+                tid: ticketId,
                 eid: eventId,
                 exp: expiry,
                 cat: category,
@@ -55,10 +51,10 @@ exports.qrService = {
             const payloadJson = JSON.stringify(unsignedPayload);
             const messageBytes = Buffer.from(payloadJson, "utf-8");
             const signature = tweetnacl_1.default.sign.detached(messageBytes, privateKeyBuffer);
-            const signatureHex = Buffer.from(signature).toString("hex");
+            const signatureBase64Url = Buffer.from(signature).toString("base64url");
             return {
                 ...unsignedPayload,
-                sig: signatureHex,
+                sig: signatureBase64Url,
             };
         }
         catch (error) {
@@ -110,15 +106,14 @@ exports.qrService = {
     //     throw error;
     //   }
     // },
-    //updated generate single qr to work with participants instead of tickets
-    async generateSingleQR(participantId) {
+    async generateSingleQR(ticketId) {
         try {
-            (0, logger_1.logInfo)("qrService:generateSingle", `Generating QR for participant ${participantId}`);
-            const participant = await ParticipantsModel_1.Participants.findById(participantId);
-            if (!participant) {
-                throw new Error("Participant not found");
+            (0, logger_1.logInfo)("qrService:generateSingle", `Generating QR for ticket ${ticketId}`);
+            const ticket = await Ticket_1.Ticket.findById(ticketId);
+            if (!ticket) {
+                throw new Error("Ticket not found");
             }
-            const event = await Event_1.Event.findById(participant.eventId).select('+qrPrivateKey');
+            const event = await Event_1.Event.findById(ticket.eventId).select('+qrPrivateKey');
             if (!event) {
                 throw new Error("Event not found");
             }
@@ -126,15 +121,15 @@ exports.qrService = {
             if (!privateKey) {
                 throw new Error("Event has no QR private key configured");
             }
-            const payload = await exports.qrService.generateSecureQRPayload(participant._id.toString(), event._id.toString(), participant.ticketType || "REGULAR_SINGLE", privateKey);
+            const payload = await exports.qrService.generateSecureQRPayload(ticket._id.toString(), event._id.toString(), ticket.ticketType, privateKey);
             const payloadJson = JSON.stringify(payload);
             const qrData = Buffer.from(payloadJson).toString("base64");
-            participant.qrData = qrData;
-            await participant.save();
+            ticket.qrData = qrData;
+            await ticket.save();
             return {
                 success: true,
-                participantId: participant._id,
-                registrationNumber: participant.registrationNumber,
+                ticketId: ticket._id,
+                ticketCode: ticket.ticketCode,
                 qrData,
                 payload,
             };
@@ -243,27 +238,6 @@ exports.qrService = {
                     (0, logger_1.logWarn)("qrService:generateBulk", `Failed for ${ticket.name}`, error);
                 }
             }
-            // Also generate for participants
-            const participants = await ParticipantsModel_1.Participants.find({
-                eventId: new mongoose_1.Types.ObjectId(eventId),
-                qrData: { $in: [null, ""] },
-            });
-            for (const participant of participants) {
-                try {
-                    const payload = await exports.qrService.generateSecureQRPayload(participant._id.toString(), eventId, participant.ticketType || "REGULAR_SINGLE", privateKey);
-                    const payloadJson = JSON.stringify(payload);
-                    const qrData = Buffer.from(payloadJson).toString("base64");
-                    participant.qrData = qrData;
-                    await participant.save();
-                    results.generated += 1;
-                    (0, logger_1.logInfo)("qrService:generateBulk", `Generated QR for ${participant.name}`);
-                }
-                catch (error) {
-                    results.failed += 1;
-                    results.errors.push(`${participant.name}: ${error instanceof Error ? error.message : "unknown error"}`);
-                    (0, logger_1.logWarn)("qrService:generateBulk", `Failed for ${participant.name}`, error);
-                }
-            }
             (0, logger_1.logInfo)("qrService:generateBulk", `Bulk generation complete: ${results.generated} generated, ${results.failed} failed`);
             return results;
         }
@@ -291,7 +265,7 @@ exports.qrService = {
             const messageBytes = Buffer.from(messageJson, "utf-8");
             // Verify signature with Ed25519
             const publicKeyBuffer = Buffer.from(publicKeyHex, "hex");
-            const signatureBuffer = Buffer.from(sig, "hex");
+            const signatureBuffer = Buffer.from(sig, "base64url");
             const isValid = tweetnacl_1.default.sign.detached.verify(messageBytes, signatureBuffer, publicKeyBuffer);
             if (!isValid) {
                 return { valid: false, error: "Signature verification failed - QR may be tampered" };

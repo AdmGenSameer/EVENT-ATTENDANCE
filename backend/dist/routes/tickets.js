@@ -36,6 +36,9 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
         res.status(200).json({
             success: true,
             participant: {
+                _id: participant._id,
+                eventId: participant.eventId,
+                ticketCode: participant.ticketCode,
                 name: participant.name,
                 personalEmail: participant.personalEmail,
                 registrationNo: participant.registrationNo,
@@ -44,6 +47,7 @@ exports.ticketsRouter.get("/events/tickets/:regNo", async (req, res) => {
                 checkedIn: participant.checkedIn,
                 checkedInAt: participant.checkedInAt || participant.checkInTime || null,
                 seatNumber: participant.seatNumber || null,
+                qrData: participant.qrData || null,
                 duo: duo && duo.length ? duo[0] : null, // if duo exists, send first
             },
             qrCode: participant.qrData || null,
