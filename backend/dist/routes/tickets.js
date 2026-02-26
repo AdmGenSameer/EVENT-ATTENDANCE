@@ -18,7 +18,8 @@ const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage()
 // Fetch ticket by registration number (path parameter)
 exports.ticketsRouter.get("/:regNo", async (req, res) => {
     try {
-        const { regNo } = req.params;
+        let { regNo } = req.params;
+        regNo = regNo.toUpperCase();
         const participant = await Ticket_1.Ticket.findOne({
             registrationNo: regNo,
         }).lean();
